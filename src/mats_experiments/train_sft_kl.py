@@ -66,7 +66,7 @@ def train(cfg):
     if not cfg.model.use_lora:
         raise ValueError("SFT+KL currently requires model.use_lora=true")
     set_seed(cfg.experiment.seed)
-    dataset = to_hf_dataset(build_dataset(cfg.data, cfg.experiment.seed).train)
+    dataset = to_hf_dataset(build_dataset(cfg.data, cfg.experiment.seed).train, conversational=True)
     run = RunDirectory.create(cfg, method="sft_kl")
     args = SFTConfig(
         output_dir=str(run.root / "checkpoints"),

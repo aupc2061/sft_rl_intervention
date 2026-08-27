@@ -26,13 +26,13 @@ training:
   batch_size: 4
   gradient_accumulation_steps: 4
   max_length: 512
-  max_completion_length: 96
+  max_completion_length: 768
   num_generations: 4
   save_steps: 2
   logging_steps: 1
 evaluation:
   batch_size: 4
-  max_new_tokens: 96
+  max_new_tokens: 768
   kl_samples: 8
   intervention_probe_samples: 16
   temperature: 0.8

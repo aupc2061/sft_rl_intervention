@@ -7,7 +7,13 @@ from typing import Any
 
 from .config import load_config
 from .data import build_dataset
-from .hf_backend import adapter_enabled, load_adapter_model, load_tokenizer, require_training_stack
+from .hf_backend import (
+    adapter_enabled,
+    encode_generation_prompt,
+    load_adapter_model,
+    load_tokenizer,
+    require_training_stack,
+)
 
 
 def _device(model):
@@ -36,7 +42,8 @@ def extract_trace_statistics(cfg, checkpoint: str | Path, output: str | Path) ->
     per_layer_base: list[list[Any]] | None = None
 
     for example in probes:
-        encoded = tokenizer(
+        encoded = encode_generation_prompt(
+            tokenizer,
             example.prompt,
             return_tensors="pt",
             truncation=True,

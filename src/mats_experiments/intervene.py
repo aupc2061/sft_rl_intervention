@@ -10,6 +10,7 @@ from .data import build_dataset
 from .evaluate import accuracy_records, generate_completion
 from .hf_backend import (
     adapter_enabled,
+    encode_generation_prompt,
     load_adapter_model,
     load_tokenizer,
     require_training_stack,
@@ -49,7 +50,7 @@ def _policy_kl(
     import torch.nn.functional as functional
 
     device = next(model.parameters()).device
-    encoded = tokenizer(prompt, return_tensors="pt").to(device)
+    encoded = encode_generation_prompt(tokenizer, prompt, return_tensors="pt").to(device)
     set_seed(sample_seed)
     with torch.no_grad(), _policy_state(model, intervention, source):
         sequence = model.generate(
@@ -92,7 +93,7 @@ def _sft_to_intervention_kl(
 
     source_device = next(sft_model.parameters()).device
     target_device = next(intervened_model.parameters()).device
-    encoded = tokenizer(prompt, return_tensors="pt").to(source_device)
+    encoded = encode_generation_prompt(tokenizer, prompt, return_tensors="pt").to(source_device)
     set_seed(sample_seed)
     with torch.no_grad():
         sequence = sft_model.generate(

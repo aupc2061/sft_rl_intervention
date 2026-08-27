@@ -11,7 +11,7 @@ binary-reward groups for GRPO. It cannot be selected based on the later KL or ac
 | Dataset | first 64 seeded GSM8K training-pool examples |
 | Generations per prompt | 4 |
 | Sampling temperature | 0.8 |
-| Maximum completion | 96 tokens |
+| Maximum completion | 768 tokens |
 | Reward | exact final numeric answer, binary |
 | Short training | 64 prompts, one epoch, four optimizer steps |
 | Seed | 1 |
@@ -27,7 +27,7 @@ whether reward and optimization metrics remain finite and whether reward behavio
 | Mixed-group fraction | at least 0.15 | too few groups have nonzero GRPO advantage |
 | All-zero-group fraction | at most 0.80 | reward starvation |
 | All-one-group fraction | at most 0.80 | task saturation |
-| Truncated-completion fraction | at most 0.25 | 96-token limit is too short |
+| Truncated-completion fraction | at most 0.25 | 768-token limit is too short |
 
 For binary reward and four generations, a mixed group has between one and three correct samples.
 All-zero and all-one groups have zero within-group reward variance.

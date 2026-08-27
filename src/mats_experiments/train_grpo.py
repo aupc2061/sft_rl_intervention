@@ -26,7 +26,9 @@ def train(cfg):
 
     set_seed(cfg.experiment.seed)
     bundle = build_dataset(cfg.data, cfg.experiment.seed)
-    dataset = to_hf_dataset(bundle.train, conversational=False)
+    # Conversational prompts make TRL apply the model chat template and preserve
+    # the assistant turn boundary used by viability and evaluation.
+    dataset = to_hf_dataset(bundle.train, conversational=True)
     tokenizer = load_tokenizer(cfg, padding_side="left")
     run = RunDirectory.create(cfg, method="grpo")
     args = GRPOConfig(

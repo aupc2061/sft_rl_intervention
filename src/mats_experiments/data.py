@@ -127,6 +127,7 @@ def to_hf_dataset(examples: Iterable[Example], conversational: bool = False):
             {
                 **example.as_dict(),
                 "prompt": [{"role": "user", "content": example.prompt}],
+                "completion": [{"role": "assistant", "content": example.completion}],
             }
             for example in examples
         ]

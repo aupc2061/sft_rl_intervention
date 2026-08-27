@@ -15,6 +15,7 @@ from mats_experiments.config import (
 )
 from mats_experiments.data import build_synthetic_arithmetic
 from mats_experiments.grpo_viability import summarize_groups
+from mats_experiments.hf_backend import encode_generation_prompt, generation_stop_token_ids
 from mats_experiments.numerics import (
     bootstrap_interval,
     globality_ratio,
@@ -40,6 +41,24 @@ class RewardTests(unittest.TestCase):
     def test_intrusion_proxy(self):
         self.assertEqual(arithmetic_domain_intrusion("A quiet discussion of wetlands."), 0.0)
         self.assertGreater(arithmetic_domain_intrusion("Compute 2 + 2. Answer: 4"), 0.5)
+
+
+class PromptFormattingTests(unittest.TestCase):
+    def test_generation_prompt_uses_chat_template(self):
+        class FakeTokenizer:
+            def apply_chat_template(self, messages, **kwargs):
+                return {"messages": messages, "kwargs": kwargs}
+
+        encoded = encode_generation_prompt(FakeTokenizer(), "hello", return_tensors="pt")
+        self.assertEqual(encoded["messages"], [{"role": "user", "content": "hello"}])
+        self.assertTrue(encoded["kwargs"]["tokenize"])
+        self.assertTrue(encoded["kwargs"]["add_generation_prompt"])
+        self.assertTrue(encoded["kwargs"]["return_dict"])
+
+    def test_all_model_stop_tokens_are_recognized(self):
+        model = type("Model", (), {"generation_config": type("Config", (), {"eos_token_id": [7, 9]})()})()
+        tokenizer = type("Tokenizer", (), {"eos_token_id": 3})()
+        self.assertEqual(generation_stop_token_ids(model, tokenizer), {7, 9})
 
 
 class NumericalTests(unittest.TestCase):

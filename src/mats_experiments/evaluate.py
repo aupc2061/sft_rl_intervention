@@ -7,7 +7,13 @@ from typing import Any, Iterable
 
 from .config import load_config
 from .data import Example, build_dataset
-from .hf_backend import adapter_enabled, load_adapter_model, load_tokenizer, require_training_stack
+from .hf_backend import (
+    adapter_enabled,
+    encode_generation_prompt,
+    load_adapter_model,
+    load_tokenizer,
+    require_training_stack,
+)
 from .numerics import bootstrap_interval
 from .rewards import exact_numeric_reward
 
@@ -19,7 +25,7 @@ def _model_device(model):
 def generate_completion(model, tokenizer, prompt: str, cfg, *, adapter: bool, sample: bool) -> str:
     import torch
 
-    encoded = tokenizer(prompt, return_tensors="pt").to(_model_device(model))
+    encoded = encode_generation_prompt(tokenizer, prompt, return_tensors="pt").to(_model_device(model))
     generation_kwargs = {
         "max_new_tokens": cfg.evaluation.max_new_tokens,
         "do_sample": sample,
@@ -55,7 +61,7 @@ def _trajectory_kl(model, tokenizer, prompt: str, cfg, source_adapter: bool, dir
     import torch
     import torch.nn.functional as functional
 
-    encoded = tokenizer(prompt, return_tensors="pt").to(_model_device(model))
+    encoded = encode_generation_prompt(tokenizer, prompt, return_tensors="pt").to(_model_device(model))
     with torch.no_grad(), adapter_enabled(model, source_adapter):
         sequence = model.generate(
             **encoded,

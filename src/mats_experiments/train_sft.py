@@ -24,7 +24,7 @@ def train(cfg):
 
     set_seed(cfg.experiment.seed)
     bundle = build_dataset(cfg.data, cfg.experiment.seed)
-    dataset = to_hf_dataset(bundle.train)
+    dataset = to_hf_dataset(bundle.train, conversational=True)
     run = RunDirectory.create(cfg, method="sft")
     args = SFTConfig(
         output_dir=str(run.root / "checkpoints"),

@@ -88,6 +88,28 @@ def load_tokenizer(cfg: ProjectConfig, padding_side: str = "left"):
     return tokenizer
 
 
+def encode_generation_prompt(tokenizer, prompt: str, **tokenizer_kwargs):
+    """Encode a user prompt exactly as an instruct model expects at generation time."""
+    messages = [{"role": "user", "content": prompt}]
+    return tokenizer.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        **tokenizer_kwargs,
+    )
+
+
+def generation_stop_token_ids(model, tokenizer) -> set[int]:
+    """Return every EOS token honored by model.generate."""
+    configured = getattr(getattr(model, "generation_config", None), "eos_token_id", None)
+    if configured is None:
+        configured = tokenizer.eos_token_id
+    if isinstance(configured, int):
+        return {configured}
+    return {int(token_id) for token_id in configured or ()}
+
+
 def load_adapter_model(
     cfg: ProjectConfig,
     checkpoint: str | Path,

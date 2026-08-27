@@ -10,6 +10,8 @@ from typing import Any
 from .config import load_config
 from .data import build_dataset
 from .hf_backend import (
+    encode_generation_prompt,
+    generation_stop_token_ids,
     load_adapter_model,
     load_tokenizer,
     require_training_stack,
@@ -101,11 +103,13 @@ def collect_groups(cfg, checkpoint: str | None, prompt_count: int) -> list[dict[
 
     model = _load_policy(cfg, checkpoint)
     tokenizer = load_tokenizer(cfg, padding_side="left")
+    stop_token_ids = generation_stop_token_ids(model, tokenizer)
     device = next(model.parameters()).device
     examples = build_dataset(cfg.data, cfg.experiment.seed).train[:prompt_count]
     groups: list[dict[str, Any]] = []
     for index, example in enumerate(examples):
-        encoded = tokenizer(
+        encoded = encode_generation_prompt(
+            tokenizer,
             example.prompt,
             return_tensors="pt",
             truncation=True,
@@ -125,21 +129,24 @@ def collect_groups(cfg, checkpoint: str | None, prompt_count: int) -> list[dict[
         generations = []
         for output in outputs:
             generated = output[prompt_tokens:]
-            text = tokenizer.decode(generated, skip_special_tokens=True)
-            ended_with_eos = bool(
-                tokenizer.eos_token_id is not None
-                and len(generated) > 0
-                and int(generated[-1].item()) == tokenizer.eos_token_id
-            )
+            stop_positions = [
+                position
+                for position, token_id in enumerate(generated.tolist())
+                if token_id in stop_token_ids
+            ]
+            ended_with_eos = bool(stop_positions)
+            completion_length = stop_positions[0] + 1 if stop_positions else len(generated)
+            completion_tokens = generated[:completion_length]
+            text = tokenizer.decode(completion_tokens, skip_special_tokens=True)
             generations.append(
                 {
                     "text": text,
                     "predicted_answer": extract_numeric_answer(text),
                     "parsed": extract_numeric_answer(text) is not None,
                     "reward": exact_numeric_reward(text, example.answer),
-                    "completion_tokens": int(len(generated)),
+                    "completion_tokens": int(completion_length),
                     "truncated": bool(
-                        len(generated) >= cfg.training.max_completion_length
+                        completion_length >= cfg.training.max_completion_length
                         and not ended_with_eos
                     ),
                 }
@@ -152,6 +159,8 @@ def collect_groups(cfg, checkpoint: str | None, prompt_count: int) -> list[dict[
                 "generations": generations,
             }
         )
+        if (index + 1) % 8 == 0 or index + 1 == len(examples):
+            print(f"Generated {index + 1}/{len(examples)} prompt groups", flush=True)
     if not groups:
         raise ValueError("The viability prompt set is empty")
     return groups

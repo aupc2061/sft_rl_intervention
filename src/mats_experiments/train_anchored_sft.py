@@ -82,7 +82,7 @@ def train(cfg):
     artifact = torch.load(cfg.training.anchor_direction, map_location="cpu", weights_only=True)
     direction = artifact["directions"][cfg.training.anchor_layer]
     set_seed(cfg.experiment.seed)
-    dataset = to_hf_dataset(build_dataset(cfg.data, cfg.experiment.seed).train)
+    dataset = to_hf_dataset(build_dataset(cfg.data, cfg.experiment.seed).train, conversational=True)
     run = RunDirectory.create(cfg, method="anchored_sft")
     args = SFTConfig(
         output_dir=str(run.root / "checkpoints"),
