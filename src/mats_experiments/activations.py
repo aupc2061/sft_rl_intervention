@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -9,7 +10,7 @@ from .config import load_config
 from .data import build_dataset
 from .hf_backend import (
     adapter_enabled,
-    encode_generation_prompt,
+    encode_generation_prompts,
     load_adapter_model,
     load_tokenizer,
     require_training_stack,
@@ -20,14 +21,18 @@ def _device(model):
     return next(model.parameters()).device
 
 
-def _mean_selected_tokens(hidden, positions: tuple[int, ...]):
+def _mean_selected_tokens(hidden, attention_mask, positions: tuple[int, ...]):
     import torch
 
-    valid = [position for position in positions if position < hidden.shape[1]]
-    if not valid:
-        valid = [0]
-    index = torch.tensor(valid, device=hidden.device)
-    return hidden[0].index_select(0, index).mean(dim=0)
+    rows = []
+    for row in range(hidden.shape[0]):
+        token_indices = torch.nonzero(attention_mask[row], as_tuple=False).flatten()
+        valid = [position for position in positions if -len(token_indices) <= position < len(token_indices)]
+        if not valid:
+            valid = [-1]
+        selected = torch.stack([token_indices[position] for position in valid])
+        rows.append(hidden[row].index_select(0, selected).mean(dim=0))
+    return torch.stack(rows)
 
 
 def extract_trace_statistics(cfg, checkpoint: str | Path, output: str | Path) -> dict[str, Any]:
@@ -35,18 +40,26 @@ def extract_trace_statistics(cfg, checkpoint: str | Path, output: str | Path) ->
     import torch
     import torch.nn.functional as functional
 
-    model = load_adapter_model(cfg, checkpoint)
+    trace_cfg = dataclasses.replace(
+        cfg, model=dataclasses.replace(cfg.model, dtype=cfg.traces.dtype)
+    )
+    model = load_adapter_model(trace_cfg, checkpoint)
     tokenizer = load_tokenizer(cfg, padding_side="right")
     probes = build_dataset(cfg.data, cfg.experiment.seed).probe
     per_layer_differences: list[list[Any]] | None = None
     per_layer_base: list[list[Any]] | None = None
 
-    for example in probes:
-        encoded = encode_generation_prompt(
+    batch_size = cfg.evaluation.batch_size
+    if batch_size < 1:
+        raise ValueError("Trace extraction batch size must be positive")
+    for start in range(0, len(probes), batch_size):
+        batch = probes[start : start + batch_size]
+        encoded = encode_generation_prompts(
             tokenizer,
-            example.prompt,
+            [example.prompt for example in batch],
             return_tensors="pt",
             truncation=True,
+            padding=True,
             max_length=cfg.training.max_length,
         ).to(_device(model))
         with torch.no_grad(), adapter_enabled(model, False):
@@ -58,10 +71,16 @@ def extract_trace_statistics(cfg, checkpoint: str | Path, output: str | Path) ->
             per_layer_differences = [[] for _ in range(len(base) - 1)]
             per_layer_base = [[] for _ in range(len(base) - 1)]
         for layer in range(len(base) - 1):
-            base_vector = _mean_selected_tokens(base[layer + 1], cfg.traces.token_positions)
-            ft_vector = _mean_selected_tokens(finetuned[layer + 1], cfg.traces.token_positions)
-            per_layer_base[layer].append(base_vector.detach().float().cpu())
-            per_layer_differences[layer].append((ft_vector - base_vector).detach().float().cpu())
+            base_vector = _mean_selected_tokens(
+                base[layer + 1], encoded["attention_mask"], cfg.traces.token_positions
+            )
+            ft_vector = _mean_selected_tokens(
+                finetuned[layer + 1], encoded["attention_mask"], cfg.traces.token_positions
+            )
+            per_layer_base[layer].extend(base_vector.detach().float().cpu().unbind())
+            per_layer_differences[layer].extend(
+                (ft_vector - base_vector).detach().float().cpu().unbind()
+            )
 
     if per_layer_differences is None or per_layer_base is None:
         raise ValueError("Probe dataset is empty")
@@ -113,6 +132,7 @@ def extract_trace_statistics(cfg, checkpoint: str | Path, output: str | Path) ->
                 "kind": "model_minus_base_trace",
                 "checkpoint": str(checkpoint),
                 "token_positions": cfg.traces.token_positions,
+                "dtype": cfg.traces.dtype,
                 "discovery_examples": boundary,
             },
         },

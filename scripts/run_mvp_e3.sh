@@ -38,20 +38,29 @@ RL_CHECKPOINT="$("${PYTHON_BIN}" -c 'import json,sys; print(json.load(open(sys.a
 SFT_CHECKPOINT="$("${PYTHON_BIN}" -c 'import json,sys; print(json.load(open(sys.argv[1]))["sft_checkpoint_path"])' "${MATCHED_PAIR}")"
 INTERVENTIONS="${REPORT_DIR}/interventions"
 mkdir -p "${INTERVENTIONS}/semantic" "${INTERVENTIONS}/random_artifacts"
-
-echo "[E3] SFT trace, layer=${LAYER}, four scales"
-SFT_CHECKPOINT="${SFT_CHECKPOINT}" SCALES="-1 0 0.5 1" bash "${SCRIPT_DIR}/run_intervention_grid.sh" \
-  "${CONFIG}" "${RL_CHECKPOINT}" "${SFT_TRACE}" "${LAYER}" add "${INTERVENTIONS}/semantic"
+E3_WORKERS="${E3_WORKERS:-2}"
 
 for random_seed in 101 102 103; do
   artifact="${INTERVENTIONS}/random_artifacts/random_${random_seed}.pt"
-  output="${INTERVENTIONS}/random_${random_seed}"
-  "${PYTHON_BIN}" -m mats_experiments.random_directions \
-    --source "${SFT_TRACE}" --output "${artifact}" --seed "${random_seed}"
-  # Scale zero is identical for every direction and was already measured in the semantic grid.
-  SFT_CHECKPOINT="${SFT_CHECKPOINT}" SCALES="-1 0.5 1" bash "${SCRIPT_DIR}/run_intervention_grid.sh" \
-    "${CONFIG}" "${RL_CHECKPOINT}" "${artifact}" "${LAYER}" add "${output}"
+  if [[ ! -f "${artifact}" ]]; then
+    "${PYTHON_BIN}" -m mats_experiments.random_directions \
+      --source "${SFT_TRACE}" --output "${artifact}" --seed "${random_seed}"
+  fi
 done
+
+echo "[E3] persistent intervention workers=${E3_WORKERS}, layer=${LAYER}, cells=13"
+"${PYTHON_BIN}" -m mats_experiments.intervene_many \
+  --config "${CONFIG}" \
+  --checkpoint "${RL_CHECKPOINT}" \
+  --sft-checkpoint "${SFT_CHECKPOINT}" \
+  --semantic-artifact "${SFT_TRACE}" \
+  --random-artifact "101=${INTERVENTIONS}/random_artifacts/random_101.pt" \
+  --random-artifact "102=${INTERVENTIONS}/random_artifacts/random_102.pt" \
+  --random-artifact "103=${INTERVENTIONS}/random_artifacts/random_103.pt" \
+  --layer "${LAYER}" \
+  --operation add \
+  --output-dir "${INTERVENTIONS}" \
+  --workers "${E3_WORKERS}"
 
 echo "[E3] Create Figure 3"
 "${PYTHON_BIN}" -m mats_experiments.mvp_analysis \

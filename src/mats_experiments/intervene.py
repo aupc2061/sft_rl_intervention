@@ -45,21 +45,29 @@ def _policy_kl(
     source: str,
     target: str,
     sample_seed: int,
+    sequence_cache=None,
 ) -> float:
     import torch
     import torch.nn.functional as functional
 
     device = next(model.parameters()).device
     encoded = encode_generation_prompt(tokenizer, prompt, return_tensors="pt").to(device)
-    set_seed(sample_seed)
-    with torch.no_grad(), _policy_state(model, intervention, source):
-        sequence = model.generate(
-            **encoded,
-            max_new_tokens=cfg.training.max_completion_length,
-            do_sample=True,
-            temperature=cfg.evaluation.temperature,
-            pad_token_id=tokenizer.pad_token_id,
-        )
+    cache_key = (source, prompt, sample_seed)
+    cached = sequence_cache.get(cache_key) if sequence_cache is not None else None
+    if cached is None:
+        set_seed(sample_seed)
+        with torch.no_grad(), _policy_state(model, intervention, source):
+            sequence = model.generate(
+                **encoded,
+                max_new_tokens=cfg.training.max_completion_length,
+                do_sample=True,
+                temperature=cfg.evaluation.temperature,
+                pad_token_id=tokenizer.pad_token_id,
+            )
+        if sequence_cache is not None:
+            sequence_cache[cache_key] = sequence.cpu()
+    else:
+        sequence = cached.to(device)
 
     def log_probs(policy):
         with torch.no_grad(), _policy_state(model, intervention, policy):
@@ -86,6 +94,7 @@ def _sft_to_intervention_kl(
     prompt,
     cfg,
     sample_seed: int,
+    sequence_cache=None,
 ) -> float:
     """MC token-level KL(SFT* || intervened RL*) on an SFT-sampled trajectory."""
     import torch
@@ -94,15 +103,22 @@ def _sft_to_intervention_kl(
     source_device = next(sft_model.parameters()).device
     target_device = next(intervened_model.parameters()).device
     encoded = encode_generation_prompt(tokenizer, prompt, return_tensors="pt").to(source_device)
-    set_seed(sample_seed)
+    cache_key = ("sft", prompt, sample_seed)
+    cached = sequence_cache.get(cache_key) if sequence_cache is not None else None
     with torch.no_grad():
-        sequence = sft_model.generate(
-            **encoded,
-            max_new_tokens=cfg.training.max_completion_length,
-            do_sample=True,
-            temperature=cfg.evaluation.temperature,
-            pad_token_id=tokenizer.pad_token_id,
-        )
+        if cached is None:
+            set_seed(sample_seed)
+            sequence = sft_model.generate(
+                **encoded,
+                max_new_tokens=cfg.training.max_completion_length,
+                do_sample=True,
+                temperature=cfg.evaluation.temperature,
+                pad_token_id=tokenizer.pad_token_id,
+            )
+            if sequence_cache is not None:
+                sequence_cache[cache_key] = sequence.cpu()
+        else:
+            sequence = cached.to(source_device)
         source_logits = sft_model(
             input_ids=sequence,
             attention_mask=torch.ones_like(sequence),
@@ -134,17 +150,28 @@ def run_intervention(
     scale,
     *,
     sft_checkpoint=None,
+    model=None,
+    sft_model=None,
+    tokenizer=None,
+    bundle=None,
+    artifact=None,
+    sequence_cache=None,
 ):
     require_training_stack()
     import torch
 
-    artifact = torch.load(direction_artifact, map_location="cpu", weights_only=True)
+    if artifact is None:
+        artifact = torch.load(direction_artifact, map_location="cpu", weights_only=True)
     direction = artifact["directions"][layer]
     base_mean = artifact.get("base_means", {}).get(layer)
-    model = load_adapter_model(cfg, checkpoint)
-    sft_model = load_adapter_model(cfg, sft_checkpoint) if sft_checkpoint else None
-    tokenizer = load_tokenizer(cfg, padding_side="left")
-    bundle = build_dataset(cfg.data, cfg.experiment.seed)
+    if model is None:
+        model = load_adapter_model(cfg, checkpoint)
+    if sft_model is None and sft_checkpoint:
+        sft_model = load_adapter_model(cfg, sft_checkpoint)
+    if tokenizer is None:
+        tokenizer = load_tokenizer(cfg, padding_side="left")
+    if bundle is None:
+        bundle = build_dataset(cfg.data, cfg.experiment.seed)
     intervention = ResidualIntervention(layer, direction, operation, scale, base_mean=base_mean)
     with intervention.install(model):
         task = accuracy_records(model, tokenizer, bundle.task_test, cfg, adapter=True)
@@ -177,6 +204,7 @@ def run_intervention(
                     row.prompt,
                     cfg,
                     cfg.experiment.seed * 1_000_000 + 10_000 + index,
+                    sequence_cache,
                 )
                 for index, row in enumerate(kl_examples)
             ]
@@ -193,6 +221,7 @@ def run_intervention(
                 "base",
                 "intervened",
                 cfg.experiment.seed * 1_000_000 + 20_000 + index,
+                sequence_cache,
             )
             for index, row in enumerate(kl_examples)
         ]
@@ -219,6 +248,7 @@ def run_intervention(
                 "unmodified",
                 "intervened",
                 cfg.experiment.seed * 1_000_000 + 40_000 + index,
+                sequence_cache,
             )
             for index, row in enumerate(kl_examples)
         ]

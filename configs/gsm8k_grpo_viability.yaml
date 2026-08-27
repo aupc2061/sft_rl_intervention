@@ -38,7 +38,7 @@ evaluation:
   temperature: 0.8
   bootstrap_samples: 1000
 traces:
-  token_positions: [0, 1, 2, 3, 4]
+  token_positions: [-5, -4, -3, -2, -1]
   discovery_fraction: 0.5
   top_k_layers: 1
   intervention_scales: [-1.0, 0.0, 0.5, 1.0]

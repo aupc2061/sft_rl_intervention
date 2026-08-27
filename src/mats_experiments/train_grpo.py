@@ -9,9 +9,9 @@ from .data import build_dataset, to_hf_dataset
 from .hf_backend import (
     lora_config,
     load_tokenizer,
+    model_init_kwargs,
     require_training_stack,
     set_seed,
-    torch_dtype,
     trainer_reporting,
     trainer_run_name,
     with_seed,
@@ -49,7 +49,9 @@ def train(cfg):
         run_name=trainer_run_name(cfg, run.root),
         bf16=cfg.model.dtype == "bfloat16",
         fp16=cfg.model.dtype == "float16",
-        model_init_kwargs={"dtype": torch_dtype(cfg.model.dtype)},
+        tf32=cfg.training.tf32,
+        gradient_checkpointing=cfg.training.gradient_checkpointing,
+        model_init_kwargs=model_init_kwargs(cfg),
     )
     trainer = GRPOTrainer(
         model=cfg.model.name_or_path,

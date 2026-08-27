@@ -13,10 +13,10 @@ from .hf_backend import (
     encode_generation_prompt,
     generation_stop_token_ids,
     load_adapter_model,
+    model_init_kwargs,
     load_tokenizer,
     require_training_stack,
     set_seed,
-    torch_dtype,
 )
 from .rewards import exact_numeric_reward, extract_numeric_answer
 
@@ -90,8 +90,8 @@ def _load_policy(cfg, checkpoint: str | None):
 
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model.name_or_path,
-        dtype=torch_dtype(cfg.model.dtype),
         device_map="auto",
+        **model_init_kwargs(cfg),
     )
     model.eval()
     return model

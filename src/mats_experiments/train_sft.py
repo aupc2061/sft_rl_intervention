@@ -8,9 +8,9 @@ from .config import load_config
 from .data import build_dataset, to_hf_dataset
 from .hf_backend import (
     lora_config,
+    model_init_kwargs,
     require_training_stack,
     set_seed,
-    torch_dtype,
     trainer_reporting,
     trainer_run_name,
     with_seed,
@@ -32,8 +32,11 @@ def train(cfg):
         data_seed=cfg.experiment.seed,
         learning_rate=cfg.training.sft_learning_rate or cfg.training.learning_rate,
         num_train_epochs=cfg.training.epochs,
-        per_device_train_batch_size=cfg.training.batch_size,
-        gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
+        per_device_train_batch_size=cfg.training.sft_batch_size or cfg.training.batch_size,
+        gradient_accumulation_steps=(
+            cfg.training.sft_gradient_accumulation_steps
+            or cfg.training.gradient_accumulation_steps
+        ),
         max_length=cfg.training.max_length,
         completion_only_loss=True,
         save_steps=cfg.training.save_steps,
@@ -42,7 +45,9 @@ def train(cfg):
         run_name=trainer_run_name(cfg, run.root),
         bf16=cfg.model.dtype == "bfloat16",
         fp16=cfg.model.dtype == "float16",
-        model_init_kwargs={"dtype": torch_dtype(cfg.model.dtype)},
+        tf32=cfg.training.tf32,
+        gradient_checkpointing=cfg.training.gradient_checkpointing,
+        model_init_kwargs=model_init_kwargs(cfg),
     )
     trainer = SFTTrainer(
         model=cfg.model.name_or_path,

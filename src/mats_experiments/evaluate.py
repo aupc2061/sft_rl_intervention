@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .config import load_config
-from .data import Example, build_dataset
+from .data import DatasetBundle, Example, build_dataset
 from .hf_backend import (
     adapter_enabled,
     encode_generation_prompt,
@@ -14,6 +14,7 @@ from .hf_backend import (
     load_adapter_model,
     load_tokenizer,
     require_training_stack,
+    set_seed,
 )
 from .numerics import bootstrap_interval
 from .rewards import exact_numeric_reward
@@ -141,11 +142,15 @@ def _trajectory_kl(model, tokenizer, prompt: str, cfg, source_adapter: bool, dir
     return float(kl.mean().item())
 
 
-def evaluate_checkpoint(cfg, checkpoint: str | Path) -> dict[str, Any]:
-    require_training_stack()
-    model = load_adapter_model(cfg, checkpoint)
-    tokenizer = load_tokenizer(cfg, padding_side="left")
-    bundle = build_dataset(cfg.data, cfg.experiment.seed)
+def evaluate_model(
+    cfg,
+    model,
+    tokenizer,
+    bundle: DatasetBundle | None = None,
+) -> dict[str, Any]:
+    """Evaluate the active adapter with reproducible Monte Carlo trajectories."""
+    set_seed(cfg.experiment.seed)
+    bundle = bundle or build_dataset(cfg.data, cfg.experiment.seed)
     task_records = accuracy_records(model, tokenizer, bundle.task_test, cfg, adapter=True)
     old_records = accuracy_records(model, tokenizer, bundle.old, cfg, adapter=True)
     base_old_records = accuracy_records(model, tokenizer, bundle.old, cfg, adapter=False)
@@ -177,6 +182,13 @@ def evaluate_checkpoint(cfg, checkpoint: str | Path) -> dict[str, Any]:
         "task_records": task_records,
         "old_records": old_records,
     }
+
+
+def evaluate_checkpoint(cfg, checkpoint: str | Path) -> dict[str, Any]:
+    require_training_stack()
+    model = load_adapter_model(cfg, checkpoint)
+    tokenizer = load_tokenizer(cfg, padding_side="left")
+    return evaluate_model(cfg, model, tokenizer)
 
 
 def main() -> None:

@@ -11,6 +11,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 CONFIG="$1"
 RUN_DIRECTORY="$2"
 PYTHON_BIN="${PYTHON_BIN:-${VENV_DIR:-${REPO_ROOT}/.venv}/bin/python}"
+EVAL_WORKERS="${EVAL_WORKERS:-2}"
 
 cd "${REPO_ROOT}"
 if [[ ! -x "${PYTHON_BIN}" ]]; then
@@ -23,19 +24,8 @@ if [[ ! -d "${CHECKPOINT_ROOT}" ]]; then
   exit 2
 fi
 
-mapfile -t CHECKPOINTS < <(
-  find "${CHECKPOINT_ROOT}" -mindepth 1 -maxdepth 1 -type d \
-    -exec test -f '{}/adapter_config.json' ';' -print | sort -V
-)
-if [[ "${#CHECKPOINTS[@]}" -eq 0 ]]; then
-  echo "No PEFT checkpoints containing adapter_config.json found under ${CHECKPOINT_ROOT}" >&2
-  exit 2
-fi
-
-for checkpoint in "${CHECKPOINTS[@]}"; do
-  checkpoint_name="$(basename -- "${checkpoint}")"
-  output="${RUN_DIRECTORY}/evaluation_${checkpoint_name}.json"
-  echo "[eval] ${checkpoint} -> ${output}"
-  "${PYTHON_BIN}" -m mats_experiments.evaluate \
-    --config "${CONFIG}" --checkpoint "${checkpoint}" --output "${output}"
-done
+echo "[eval] persistent adapter workers=${EVAL_WORKERS} run=${RUN_DIRECTORY}"
+"${PYTHON_BIN}" -m mats_experiments.evaluate_many \
+  --config "${CONFIG}" \
+  --run-directory "${RUN_DIRECTORY}" \
+  --workers "${EVAL_WORKERS}"

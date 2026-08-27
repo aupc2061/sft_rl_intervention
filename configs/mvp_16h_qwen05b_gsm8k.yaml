@@ -10,6 +10,7 @@ model:
   lora_alpha: 16
   lora_dropout: 0.0
   target_modules: [q_proj, k_proj, v_proj, o_proj]
+  attention_implementation: sdpa
 data:
   kind: gsm8k
   train_size: 256
@@ -26,6 +27,12 @@ training:
   batch_size: 4
   gradient_accumulation_steps: 4
   max_length: 512
+  # A100-tuned SFT microbatch; preserves the original effective batch of 16.
+  sft_batch_size: 16
+  sft_gradient_accumulation_steps: 1
+  # The 0.5B LoRA policy fits comfortably in 40 GB without recomputation.
+  gradient_checkpointing: false
+  tf32: true
   max_completion_length: 768
   num_generations: 4
   save_steps: 4
@@ -38,7 +45,8 @@ evaluation:
   temperature: 0.8
   bootstrap_samples: 2000
 traces:
-  token_positions: [0, 1, 2, 3, 4]
+  dtype: float32
+  token_positions: [-5, -4, -3, -2, -1]
   discovery_fraction: 0.5
   top_k_layers: 1
   intervention_scales: [-1.0, 0.0, 0.5, 1.0]

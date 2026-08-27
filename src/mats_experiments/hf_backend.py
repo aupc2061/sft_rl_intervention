@@ -63,6 +63,14 @@ def torch_dtype(name: str):
         raise ValueError(f"Unsupported dtype: {name}") from exc
 
 
+def model_init_kwargs(cfg: ProjectConfig) -> dict[str, Any]:
+    """Model-loading options shared by trainers and inference entry points."""
+    kwargs: dict[str, Any] = {"dtype": torch_dtype(cfg.model.dtype)}
+    if cfg.model.attention_implementation is not None:
+        kwargs["attn_implementation"] = cfg.model.attention_implementation
+    return kwargs
+
+
 def lora_config(cfg: ProjectConfig):
     if not cfg.model.use_lora:
         return None
@@ -135,8 +143,8 @@ def load_adapter_model(
 
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model.name_or_path,
-        dtype=torch_dtype(cfg.model.dtype),
         device_map=device_map,
+        **model_init_kwargs(cfg),
     )
     model = PeftModel.from_pretrained(model, str(checkpoint), is_trainable=trainable)
     model.eval()

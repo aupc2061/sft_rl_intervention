@@ -41,7 +41,8 @@ data, trainable LoRA modules, seed, and nominal epoch count remain controlled ac
 4. Confirmation `rho` and split-half cosine are reported but never used for layer selection.
 5. E3 uses four scales `{-1, 0, 0.5, 1}` and three random directions. Do not add layers or controls.
    Trace extraction uses all 128 probes; each steering cell uses a frozen 32-probe subset to keep
-   the causal grid inside the deadline.
+   the causal grid inside the deadline. The trace pools the final five non-padding prompt positions, which are
+   causally conditioned on the user content, and computes model-minus-base differences in FP32.
 6. If any stage exceeds its time box, preserve completed outputs and move to analysis/write-up.
 
 ## Frozen estimands

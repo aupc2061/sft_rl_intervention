@@ -5,6 +5,7 @@ import unittest
 import importlib.util
 from pathlib import Path
 
+from mats_experiments.activations import _mean_selected_tokens
 from mats_experiments.config import (
     DataConfig,
     ExperimentConfig,
@@ -14,6 +15,8 @@ from mats_experiments.config import (
     load_config,
 )
 from mats_experiments.data import build_synthetic_arithmetic
+from mats_experiments.evaluate_many import partition_checkpoints
+from mats_experiments.intervene_many import build_cells, partition_cells
 from mats_experiments.grpo_viability import summarize_groups
 from mats_experiments.hf_backend import (
     encode_generation_prompt,
@@ -84,6 +87,37 @@ class PromptFormattingTests(unittest.TestCase):
 
 
 class NumericalTests(unittest.TestCase):
+    def test_e3_grid_has_exact_frozen_cells_and_balanced_workers(self):
+        cells = build_cells(
+            "outputs/interventions", "semantic.pt",
+            [("101", "random101.pt"), ("102", "random102.pt"), ("103", "random103.pt")],
+            layer=7,
+        )
+        self.assertEqual(len(cells), 13)
+        self.assertEqual([cell.scale for cell in cells[:4]], [-1.0, 0.0, 0.5, 1.0])
+        self.assertTrue(cells[0].output.endswith("semantic/layer7_add_neg1.json"))
+        self.assertTrue(cells[5].output.endswith("random_101/layer7_add_0p5.json"))
+        self.assertEqual([len(p) for p in partition_cells(cells, 2)], [7, 6])
+
+    def test_e3_partition_rejects_zero_workers(self):
+        with self.assertRaises(ValueError):
+            partition_cells([], workers=0)
+
+    def test_checkpoint_partitioning_is_balanced_and_stable(self):
+        checkpoints = [Path(f"checkpoint-{step}") for step in (4, 8, 12, 16, 20)]
+        partitions = partition_checkpoints(checkpoints, workers=2)
+        self.assertEqual(partitions, [checkpoints[::2], checkpoints[1::2]])
+
+    def test_trace_positions_resolve_against_each_unpadded_sequence(self):
+        if importlib.util.find_spec("torch") is None:
+            self.skipTest("PyTorch is not installed")
+        import torch
+
+        hidden = torch.arange(2 * 5, dtype=torch.float32).reshape(2, 5, 1)
+        mask = torch.tensor([[1, 1, 1, 0, 0], [1, 1, 1, 1, 1]])
+        selected = _mean_selected_tokens(hidden, mask, (-2, -1))
+        torch.testing.assert_close(selected[:, 0], torch.tensor([1.5, 8.5]))
+
     def test_kl(self):
         self.assertAlmostEqual(kl_divergence([0.5, 0.5], [0.5, 0.5]), 0.0)
         self.assertGreater(kl_divergence([0.9, 0.1], [0.1, 0.9]), 0.0)
@@ -207,6 +241,13 @@ class ConfigFileTests(unittest.TestCase):
         self.assertEqual(mvp.model.name_or_path, "Qwen/Qwen2.5-0.5B-Instruct")
         self.assertEqual(mvp.experiment.seed, 1)
         self.assertEqual(mvp.training.grpo_learning_rate, 1e-6)
+        self.assertEqual(mvp.model.attention_implementation, "sdpa")
+        self.assertEqual(mvp.training.sft_batch_size, 16)
+        self.assertEqual(mvp.training.sft_gradient_accumulation_steps, 1)
+        self.assertFalse(mvp.training.gradient_checkpointing)
+        self.assertTrue(mvp.training.tf32)
+        self.assertEqual(mvp.traces.token_positions, (-5, -4, -3, -2, -1))
+        self.assertEqual(mvp.traces.dtype, "float32")
         self.assertEqual(mvp.traces.top_k_layers, 1)
         self.assertEqual(viability.training.method, "grpo")
         self.assertEqual(viability.data.train_size, 64)

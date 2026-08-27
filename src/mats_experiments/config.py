@@ -24,6 +24,7 @@ class ModelConfig:
     lora_alpha: int = 32
     lora_dropout: float = 0.0
     target_modules: tuple[str, ...] = ("q_proj", "k_proj", "v_proj", "o_proj")
+    attention_implementation: str | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,10 @@ class TrainingConfig:
     epochs: float = 1.0
     batch_size: int = 2
     gradient_accumulation_steps: int = 1
+    sft_batch_size: int | None = None
+    sft_gradient_accumulation_steps: int | None = None
+    gradient_checkpointing: bool = True
+    tf32: bool | None = None
     max_length: int = 512
     max_completion_length: int = 128
     num_generations: int = 4
@@ -68,7 +73,8 @@ class EvaluationConfig:
 
 @dataclass(frozen=True)
 class TraceConfig:
-    token_positions: tuple[int, ...] = (0, 1, 2, 3, 4)
+    dtype: str = "float32"
+    token_positions: tuple[int, ...] = (-5, -4, -3, -2, -1)
     discovery_fraction: float = 0.5
     top_k_layers: int = 3
     intervention_scales: tuple[float, ...] = (-1.0, -0.5, 0.0, 0.5, 1.0)
@@ -97,6 +103,8 @@ class ProjectConfig:
             raise ValueError(f"Unsupported dataset kind: {self.data.kind}")
         if not 0 < self.traces.discovery_fraction < 1:
             raise ValueError("traces.discovery_fraction must lie strictly between 0 and 1")
+        if self.traces.dtype not in {"bfloat16", "float16", "float32"}:
+            raise ValueError(f"Unsupported traces.dtype: {self.traces.dtype}")
         if self.training.method == "anchored_sft":
             if not self.training.anchor_direction or self.training.anchor_layer is None:
                 raise ValueError("anchored_sft requires anchor_direction and anchor_layer")
@@ -105,6 +113,15 @@ class ProjectConfig:
         if self.training.kl_coefficient < 0:
             raise ValueError("kl_coefficient must be non-negative")
         for name in ("learning_rate", "sft_learning_rate", "grpo_learning_rate"):
+            value = getattr(self.training, name)
+            if value is not None and value <= 0:
+                raise ValueError(f"training.{name} must be positive")
+        for name in (
+            "batch_size",
+            "gradient_accumulation_steps",
+            "sft_batch_size",
+            "sft_gradient_accumulation_steps",
+        ):
             value = getattr(self.training, name)
             if value is not None and value <= 0:
                 raise ValueError(f"training.{name} must be positive")
