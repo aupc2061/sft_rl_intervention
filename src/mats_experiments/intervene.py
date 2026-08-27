@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .config import load_config
 from .data import build_dataset
-from .evaluate import accuracy_records, generate_completion
+from .evaluate import accuracy_records, generate_completions
 from .hf_backend import (
     adapter_enabled,
     encode_generation_prompt,
@@ -150,14 +150,20 @@ def run_intervention(
         task = accuracy_records(model, tokenizer, bundle.task_test, cfg, adapter=True)
         old = accuracy_records(model, tokenizer, bundle.old, cfg, adapter=True)
         intervention_probes = bundle.probe[: cfg.evaluation.intervention_probe_samples]
+        probe_completions = generate_completions(
+            model,
+            tokenizer,
+            [example.prompt for example in intervention_probes],
+            cfg,
+            adapter=True,
+            sample=False,
+        )
         probes = [
             {
                 "example_id": example.example_id,
-                "completion": generate_completion(
-                    model, tokenizer, example.prompt, cfg, adapter=True, sample=False
-                ),
+                "completion": completion,
             }
-            for example in intervention_probes
+            for example, completion in zip(intervention_probes, probe_completions, strict=True)
         ]
         kl_examples = bundle.task_test[: cfg.evaluation.kl_samples]
         # These seeds depend only on the prompt index, not direction or alpha. Every E3 cell

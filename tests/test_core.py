@@ -15,7 +15,11 @@ from mats_experiments.config import (
 )
 from mats_experiments.data import build_synthetic_arithmetic
 from mats_experiments.grpo_viability import summarize_groups
-from mats_experiments.hf_backend import encode_generation_prompt, generation_stop_token_ids
+from mats_experiments.hf_backend import (
+    encode_generation_prompt,
+    encode_generation_prompts,
+    generation_stop_token_ids,
+)
 from mats_experiments.numerics import (
     bootstrap_interval,
     globality_ratio,
@@ -59,6 +63,24 @@ class PromptFormattingTests(unittest.TestCase):
         model = type("Model", (), {"generation_config": type("Config", (), {"eos_token_id": [7, 9]})()})()
         tokenizer = type("Tokenizer", (), {"eos_token_id": 3})()
         self.assertEqual(generation_stop_token_ids(model, tokenizer), {7, 9})
+
+    def test_generation_prompt_batch_uses_chat_template(self):
+        class FakeTokenizer:
+            def apply_chat_template(self, messages, **kwargs):
+                return {"messages": messages, "kwargs": kwargs}
+
+        encoded = encode_generation_prompts(
+            FakeTokenizer(), ["first", "second"], return_tensors="pt", padding=True
+        )
+        self.assertEqual(
+            encoded["messages"],
+            [
+                [{"role": "user", "content": "first"}],
+                [{"role": "user", "content": "second"}],
+            ],
+        )
+        self.assertTrue(encoded["kwargs"]["padding"])
+        self.assertTrue(encoded["kwargs"]["add_generation_prompt"])
 
 
 class NumericalTests(unittest.TestCase):

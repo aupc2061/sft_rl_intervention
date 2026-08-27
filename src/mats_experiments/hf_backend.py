@@ -100,6 +100,18 @@ def encode_generation_prompt(tokenizer, prompt: str, **tokenizer_kwargs):
     )
 
 
+def encode_generation_prompts(tokenizer, prompts: list[str], **tokenizer_kwargs):
+    """Batch-encode user prompts with the same instruct-model chat boundary."""
+    conversations = [[{"role": "user", "content": prompt}] for prompt in prompts]
+    return tokenizer.apply_chat_template(
+        conversations,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        **tokenizer_kwargs,
+    )
+
+
 def generation_stop_token_ids(model, tokenizer) -> set[int]:
     """Return every EOS token honored by model.generate."""
     configured = getattr(getattr(model, "generation_config", None), "eos_token_id", None)

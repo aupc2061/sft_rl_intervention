@@ -10,6 +10,7 @@ from .data import Example, build_dataset
 from .hf_backend import (
     adapter_enabled,
     encode_generation_prompt,
+    encode_generation_prompts,
     load_adapter_model,
     load_tokenizer,
     require_training_stack,
@@ -23,9 +24,36 @@ def _model_device(model):
 
 
 def generate_completion(model, tokenizer, prompt: str, cfg, *, adapter: bool, sample: bool) -> str:
+    return generate_completions(
+        model,
+        tokenizer,
+        [prompt],
+        cfg,
+        adapter=adapter,
+        sample=sample,
+        batch_size=1,
+    )[0]
+
+
+def generate_completions(
+    model,
+    tokenizer,
+    prompts: Iterable[str],
+    cfg,
+    *,
+    adapter: bool,
+    sample: bool,
+    batch_size: int | None = None,
+) -> list[str]:
+    """Generate completions in GPU batches without changing policy state."""
     import torch
 
-    encoded = encode_generation_prompt(tokenizer, prompt, return_tensors="pt").to(_model_device(model))
+    prompt_list = list(prompts)
+    if not prompt_list:
+        return []
+    effective_batch_size = batch_size or cfg.evaluation.batch_size
+    if effective_batch_size < 1:
+        raise ValueError("Generation batch size must be positive")
     generation_kwargs = {
         "max_new_tokens": cfg.evaluation.max_new_tokens,
         "do_sample": sample,
@@ -33,16 +61,38 @@ def generate_completion(model, tokenizer, prompt: str, cfg, *, adapter: bool, sa
     }
     if sample:
         generation_kwargs["temperature"] = cfg.evaluation.temperature
-    with torch.no_grad(), adapter_enabled(model, adapter):
-        output = model.generate(**encoded, **generation_kwargs)
-    generated = output[0, encoded["input_ids"].shape[1] :]
-    return tokenizer.decode(generated, skip_special_tokens=True)
+    completions: list[str] = []
+    with torch.inference_mode(), adapter_enabled(model, adapter):
+        for start in range(0, len(prompt_list), effective_batch_size):
+            batch = prompt_list[start : start + effective_batch_size]
+            encoded = encode_generation_prompts(
+                tokenizer,
+                batch,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=cfg.training.max_length,
+            ).to(_model_device(model))
+            output = model.generate(**encoded, **generation_kwargs)
+            prompt_width = encoded["input_ids"].shape[1]
+            completions.extend(
+                tokenizer.batch_decode(output[:, prompt_width:], skip_special_tokens=True)
+            )
+    return completions
 
 
 def accuracy_records(model, tokenizer, examples: Iterable[Example], cfg, *, adapter: bool):
+    example_list = list(examples)
+    completions = generate_completions(
+        model,
+        tokenizer,
+        [example.prompt for example in example_list],
+        cfg,
+        adapter=adapter,
+        sample=False,
+    )
     records: list[dict[str, Any]] = []
-    for example in examples:
-        completion = generate_completion(model, tokenizer, example.prompt, cfg, adapter=adapter, sample=False)
+    for example, completion in zip(example_list, completions, strict=True):
         reward = exact_numeric_reward(completion, example.answer)
         records.append(
             {
