@@ -1,0 +1,42 @@
+experiment:
+  name: exp1_synthetic_smoke
+  output_root: outputs
+  seed: 1
+model:
+  name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: bfloat16
+  use_lora: true
+  lora_rank: 8
+  lora_alpha: 16
+  lora_dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+data:
+  kind: synthetic_arithmetic
+  train_size: 128
+  task_test_size: 64
+  probe_size: 64
+  old_size: 64
+  max_operand: 30
+training:
+  method: sft
+  learning_rate: 0.0001
+  epochs: 1
+  batch_size: 2
+  gradient_accumulation_steps: 2
+  max_length: 256
+  max_completion_length: 64
+  num_generations: 4
+  save_steps: 25
+  logging_steps: 5
+evaluation:
+  batch_size: 2
+  max_new_tokens: 64
+  kl_samples: 32
+  temperature: 0.8
+  bootstrap_samples: 1000
+traces:
+  token_positions: [0, 1, 2, 3, 4]
+  discovery_fraction: 0.5
+  top_k_layers: 3
+  intervention_scales: [-1.0, -0.5, 0.0, 0.5, 1.0]
+

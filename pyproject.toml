@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mats-sft-rl-bias"
+version = "0.1.0"
+description = "Causal experiments on global representation shifts induced by SFT versus online RL"
+requires-python = ">=3.10"
+dependencies = [
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+train = [
+  "torch>=2.4",
+  "transformers>=4.55",
+  "datasets>=3.0",
+  "accelerate>=1.2",
+  "peft>=0.17",
+  "trl>=0.23",
+]
+analysis = [
+  "pandas>=2.2",
+  "matplotlib>=3.9",
+  "seaborn>=0.13",
+]
+dev = ["pytest>=8.3"]
+all = [
+  "torch>=2.4",
+  "transformers>=4.55",
+  "datasets>=3.0",
+  "accelerate>=1.2",
+  "peft>=0.17",
+  "trl>=0.23",
+  "pandas>=2.2",
+  "matplotlib>=3.9",
+  "seaborn>=0.13",
+  "pytest>=8.3",
+]
+
+[project.scripts]
+mats-train-sft = "mats_experiments.train_sft:main"
+mats-train-grpo = "mats_experiments.train_grpo:main"
+mats-evaluate = "mats_experiments.evaluate:main"
+mats-extract-traces = "mats_experiments.activations:main"
+mats-intervene = "mats_experiments.intervene:main"
+mats-train-anchored-sft = "mats_experiments.train_anchored_sft:main"
+mats-train-sft-kl = "mats_experiments.train_sft_kl:main"
+mats-combine-traces = "mats_experiments.combine_traces:main"
+mats-logit-lens = "mats_experiments.logit_lens:main"
+mats-random-directions = "mats_experiments.random_directions:main"
+mats-analyze = "mats_experiments.analysis:main"
+mats-mvp-analysis = "mats_experiments.mvp_analysis:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

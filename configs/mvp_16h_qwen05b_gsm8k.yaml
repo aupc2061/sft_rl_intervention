@@ -1,0 +1,44 @@
+experiment:
+  name: mvp_16h_qwen05b_gsm8k
+  output_root: outputs
+  seed: 1
+model:
+  name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: bfloat16
+  use_lora: true
+  lora_rank: 8
+  lora_alpha: 16
+  lora_dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+data:
+  kind: gsm8k
+  train_size: 256
+  task_test_size: 48
+  probe_size: 128
+  old_size: 32
+  max_operand: 50
+training:
+  method: sft
+  learning_rate: 0.0001
+  sft_learning_rate: 0.0001
+  grpo_learning_rate: 0.000001
+  epochs: 1
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  max_length: 512
+  max_completion_length: 96
+  num_generations: 4
+  save_steps: 4
+  logging_steps: 1
+evaluation:
+  batch_size: 4
+  max_new_tokens: 96
+  kl_samples: 16
+  intervention_probe_samples: 32
+  temperature: 0.8
+  bootstrap_samples: 2000
+traces:
+  token_positions: [0, 1, 2, 3, 4]
+  discovery_fraction: 0.5
+  top_k_layers: 1
+  intervention_scales: [-1.0, 0.0, 0.5, 1.0]
