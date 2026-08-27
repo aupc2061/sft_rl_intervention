@@ -68,6 +68,11 @@ estimate, and analysis plan.
 chmod +x scripts/*.sh
 ./scripts/setup_remote.sh
 
+# Required dataset/reward-signal gate before the full matrix.
+uv run wandb login
+export WANDB_PROJECT=sft-rl-intervention
+./scripts/run_gsm8k_viability.sh configs/gsm8k_grpo_viability.yaml
+
 # Complete workflow: smoke, one SFT, one RL, traces, then conditional E3.
 ./scripts/run_mvp_16h.sh configs/mvp_16h_qwen05b_gsm8k.yaml
 ```
@@ -76,6 +81,10 @@ chmod +x scripts/*.sh
 `uv sync --all-extras`. Every subsequent Bash runner automatically uses `.venv/bin/python`, so no
 manual activation step is required. Set `UV_PROJECT_ENVIRONMENT` or `VENV_DIR` if the environment
 must live somewhere else.
+
+See [docs/gsm8k_viability.md](docs/gsm8k_viability.md) for the predeclared reward-signal thresholds
+and W&B metrics. When `WANDB_PROJECT` is set, all Trainer-based SFT and GRPO runs log to W&B;
+otherwise they retain local-only logging.
 
 To inspect the trace result before spending compute on steering, run the two phases separately:
 

@@ -31,6 +31,8 @@ export UV_PROJECT_ENVIRONMENT="${VENV_DIR}"
   --config configs/exp1_synthetic_smoke.yaml
 "${UV_BIN}" run python -m mats_experiments.validate_config \
   --config configs/mvp_16h_qwen05b_gsm8k.yaml --skip-data
+"${UV_BIN}" run python -m mats_experiments.validate_config \
+  --config configs/gsm8k_grpo_viability.yaml --skip-data
 
 "${UV_BIN}" run python - <<'PY'
 import torch

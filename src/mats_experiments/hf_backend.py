@@ -2,11 +2,21 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import os
 import random
 from pathlib import Path
 from typing import Any, Iterator
 
 from .config import ProjectConfig
+
+
+def trainer_reporting() -> str:
+    """Enable W&B only when the caller explicitly names a project."""
+    return "wandb" if os.environ.get("WANDB_PROJECT") else "none"
+
+
+def trainer_run_name(cfg: ProjectConfig, run_root: str | Path) -> str:
+    return f"{cfg.experiment.name}-{Path(run_root).name}"
 
 
 def require_training_stack() -> None:

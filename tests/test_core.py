@@ -14,6 +14,7 @@ from mats_experiments.config import (
     load_config,
 )
 from mats_experiments.data import build_synthetic_arithmetic
+from mats_experiments.grpo_viability import summarize_groups
 from mats_experiments.numerics import (
     bootstrap_interval,
     globality_ratio,
@@ -108,6 +109,34 @@ class NumericalTests(unittest.TestCase):
         self.assertAlmostEqual(derived["delta_base_kl"], 0.2)
         self.assertAlmostEqual(derived["delta_task_accuracy"], -0.05)
 
+    def test_grpo_viability_gate_uses_mixed_reward_groups(self):
+        def group(rewards):
+            return {
+                "generations": [
+                    {
+                        "reward": reward,
+                        "parsed": True,
+                        "truncated": False,
+                        "completion_tokens": 20,
+                    }
+                    for reward in rewards
+                ]
+            }
+
+        groups = [group([1, 0, 0, 0]), group([0, 1, 0, 0])]
+        groups.extend(group([0, 0, 0, 0]) for _ in range(8))
+        summary = summarize_groups(
+            groups,
+            min_parsed_rate=0.8,
+            min_mixed_group_fraction=0.15,
+            max_all_zero_fraction=0.8,
+            max_all_one_fraction=0.8,
+            max_truncated_fraction=0.25,
+        )
+        self.assertTrue(summary["suitable_for_grpo"])
+        self.assertAlmostEqual(summary["metrics"]["mixed_group_fraction"], 0.2)
+        self.assertAlmostEqual(summary["metrics"]["all_zero_group_fraction"], 0.8)
+
 
 class DataTests(unittest.TestCase):
     def test_splits_are_disjoint_and_deterministic(self):
@@ -131,12 +160,15 @@ class ConfigFileTests(unittest.TestCase):
         smoke = load_config(root / "configs" / "exp1_synthetic_smoke.yaml")
         real = load_config(root / "configs" / "exp1_qwen_gsm8k.yaml")
         mvp = load_config(root / "configs" / "mvp_16h_qwen05b_gsm8k.yaml")
+        viability = load_config(root / "configs" / "gsm8k_grpo_viability.yaml")
         self.assertEqual(smoke.data.kind, "synthetic_arithmetic")
         self.assertEqual(real.model.name_or_path, "Qwen/Qwen2.5-3B-Instruct")
         self.assertEqual(mvp.model.name_or_path, "Qwen/Qwen2.5-0.5B-Instruct")
         self.assertEqual(mvp.experiment.seed, 1)
         self.assertEqual(mvp.training.grpo_learning_rate, 1e-6)
         self.assertEqual(mvp.traces.top_k_layers, 1)
+        self.assertEqual(viability.training.method, "grpo")
+        self.assertEqual(viability.data.train_size, 64)
 
 
 class ResultContractTests(unittest.TestCase):

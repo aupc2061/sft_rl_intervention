@@ -19,6 +19,7 @@ train = [
   "accelerate>=1.2",
   "peft>=0.17",
   "trl>=0.23",
+  "wandb>=0.19",
 ]
 analysis = [
   "pandas>=2.2",
@@ -33,6 +34,7 @@ all = [
   "accelerate>=1.2",
   "peft>=0.17",
   "trl>=0.23",
+  "wandb>=0.19",
   "pandas>=2.2",
   "matplotlib>=3.9",
   "seaborn>=0.13",
@@ -52,6 +54,7 @@ mats-logit-lens = "mats_experiments.logit_lens:main"
 mats-random-directions = "mats_experiments.random_directions:main"
 mats-analyze = "mats_experiments.analysis:main"
 mats-mvp-analysis = "mats_experiments.mvp_analysis:main"
+mats-grpo-viability = "mats_experiments.grpo_viability:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

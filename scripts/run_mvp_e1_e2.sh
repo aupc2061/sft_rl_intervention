@@ -10,12 +10,25 @@ RUN_SMOKE="${RUN_SMOKE:-1}"
 MIN_RHO_GAP="${MIN_RHO_GAP:-0.02}"
 MAX_ACCURACY_GAP="${MAX_ACCURACY_GAP:-0.10}"
 MIN_KL_GAP="${MIN_KL_GAP:-0.0}"
+REQUIRE_VIABILITY="${REQUIRE_VIABILITY:-1}"
+VIABILITY_RESULT="${VIABILITY_RESULT:-outputs/gsm8k_grpo_viability_qwen05b/viability_report/base_viability.json}"
 PYTHON_BIN="${PYTHON_BIN:-${VENV_DIR:-${REPO_ROOT}/.venv}/bin/python}"
 
 cd "${REPO_ROOT}"
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   echo "Python environment not found at ${PYTHON_BIN}. Run scripts/setup_remote.sh first." >&2
   exit 2
+fi
+if [[ "${REQUIRE_VIABILITY}" == "1" ]]; then
+  if [[ ! -f "${VIABILITY_RESULT}" ]]; then
+    echo "Missing required GSM8K viability result: ${VIABILITY_RESULT}" >&2
+    echo "Run scripts/run_gsm8k_viability.sh before the full matrix." >&2
+    exit 2
+  fi
+  if ! "${PYTHON_BIN}" -c 'import json,sys; raise SystemExit(0 if json.load(open(sys.argv[1]))["suitable_for_grpo"] else 1)' "${VIABILITY_RESULT}"; then
+    echo "The GSM8K viability gate failed; refusing to launch the full matrix." >&2
+    exit 3
+  fi
 fi
 
 latest_run() {

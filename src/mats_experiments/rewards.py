@@ -46,10 +46,23 @@ def arithmetic_domain_intrusion(text: str) -> float:
 
 
 def grpo_numeric_reward(
-    completions: Iterable[Any], answer: Iterable[str], **_: Any
+    completions: Iterable[Any],
+    answer: Iterable[str],
+    log_extra=None,
+    log_metric=None,
+    **_: Any,
 ) -> list[float]:
     texts = [_completion_text(completion) for completion in completions]
-    return [exact_numeric_reward(text, target) for text, target in zip(texts, answer)]
+    targets = list(answer)
+    predictions = [extract_numeric_answer(text) for text in texts]
+    rewards = [exact_numeric_reward(text, target) for text, target in zip(texts, targets)]
+    if callable(log_extra):
+        log_extra("gold_answer", targets)
+        log_extra("parsed_answer", [prediction or "[unparsed]" for prediction in predictions])
+    if callable(log_metric) and texts:
+        log_metric("parsed_answer_rate", sum(value is not None for value in predictions) / len(texts))
+        log_metric("exact_numeric_accuracy", sum(rewards) / len(rewards))
+    return rewards
 
 
 def _completion_text(completion: Any) -> str:

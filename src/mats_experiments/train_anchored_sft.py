@@ -11,6 +11,8 @@ from .hf_backend import (
     require_training_stack,
     set_seed,
     torch_dtype,
+    trainer_reporting,
+    trainer_run_name,
     transformer_layers,
     with_seed,
 )
@@ -94,7 +96,8 @@ def train(cfg):
         completion_only_loss=True,
         save_steps=cfg.training.save_steps,
         logging_steps=cfg.training.logging_steps,
-        report_to="none",
+        report_to=trainer_reporting(),
+        run_name=trainer_run_name(cfg, run.root),
         bf16=cfg.model.dtype == "bfloat16",
         fp16=cfg.model.dtype == "float16",
         model_init_kwargs={"dtype": torch_dtype(cfg.model.dtype)},
