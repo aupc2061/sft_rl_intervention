@@ -11,6 +11,10 @@ For the current 16-hour work sample, only the observation, trace extraction, and
 intervention are active. The deadline-scoped plan is [docs/mvp_16h.md](docs/mvp_16h.md); the larger
 research matrix is deferred follow-up work.
 
+E1-E3 have since been completed, and the exact paired-base E4 necessity follow-up is implemented in
+[docs/e4_necessity.md](docs/e4_necessity.md). It deliberately reuses the frozen matched checkpoints,
+layer, SFT trace, and random orientations rather than reopening discovery choices.
+
 The complete frozen specification, including the exact E1-E3 estimands and interpretation rules,
 is [docs/implementation_summary.md](docs/implementation_summary.md).
 
@@ -94,6 +98,9 @@ cat outputs/mvp_16h_qwen05b_gsm8k/mvp_report/selected_layer.json
 
 source outputs/mvp_16h_qwen05b_gsm8k/latest_runs.env
 ./scripts/run_mvp_e3.sh "$CONFIG" "$SFT_RUN" "$RL_RUN" "$REPORT_DIR"
+
+# After E3 is complete, run the exact same-prefix necessity experiment.
+./scripts/run_mvp_e4.sh "$CONFIG" "$SFT_RUN" "$RL_RUN" "$REPORT_DIR"
 ```
 
 Set `CUDA_VISIBLE_DEVICES` before a command to bind it to a specific GPU. Multiple independent

@@ -55,6 +55,8 @@ mats-random-directions = "mats_experiments.random_directions:main"
 mats-analyze = "mats_experiments.analysis:main"
 mats-mvp-analysis = "mats_experiments.mvp_analysis:main"
 mats-grpo-viability = "mats_experiments.grpo_viability:main"
+mats-e4 = "mats_experiments.e4:main"
+mats-e4-analysis = "mats_experiments.e4_analysis:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
