@@ -98,7 +98,7 @@ source outputs/mvp_16h_qwen05b_gsm8k/latest_runs.env
 ./scripts/run_mvp_e4.sh "$CONFIG" "$SFT_RUN" "$RL_RUN" "$REPORT_DIR"
 ```
 
-The script first runs a two-cell, two-example smoke unless `E4_SKIP_SMOKE=1`. It then writes:
+The script first runs a two-cell, two-example smoke unless `E4_SKIP_SMOKE=1`. The smoke is gated on exact raw-token equality between beta-zero paired decoding and ordinary Hugging Face greedy generation for two left-padded prompts with unequal token lengths. It then writes:
 
 - `mvp_report/e4_interventions/full/`: 17 self-contained cell files and trajectory caches;
 - `mvp_report/e4_metrics.json`: derived metrics and paired-bootstrap specificity comparisons;

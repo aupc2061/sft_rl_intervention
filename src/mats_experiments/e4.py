@@ -365,7 +365,25 @@ def _paired_greedy_generate(
     *,
     max_new_tokens: int,
 ) -> list[str]:
-    """Greedy decoding with synchronized base/SFT KV caches on every evolving prefix."""
+    token_ids = _paired_greedy_generate_token_ids(
+        model, tokenizer, prompts, directions, betas, cfg, restorer,
+        max_new_tokens=max_new_tokens,
+    )
+    return tokenizer.batch_decode(token_ids, skip_special_tokens=True)
+
+
+def _paired_greedy_generate_token_ids(
+    model,
+    tokenizer,
+    prompts: list[str],
+    directions,
+    betas,
+    cfg,
+    restorer,
+    *,
+    max_new_tokens: int,
+) -> list[list[int]]:
+    """Greedy decoding with HF-compatible positions and synchronized base/SFT caches."""
     import torch
 
     device = _model_device(model)
@@ -379,28 +397,49 @@ def _paired_greedy_generate(
     ).to(device)
     input_ids = encoded["input_ids"]
     attention_mask = encoded["attention_mask"]
+    position_ids = attention_mask.long().cumsum(dim=-1) - 1
+    position_ids.masked_fill_(attention_mask == 0, 1)
+    cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=device)
     directions = directions.to(device)
     betas = betas.to(device)
     stop_ids = generation_stop_token_ids(model, tokenizer)
     stop_tensor = torch.tensor(sorted(stop_ids), dtype=torch.long, device=device)
     finished = torch.zeros(len(prompts), dtype=torch.bool, device=device)
     generated: list[list[int]] = [[] for _ in prompts]
+    sequence_ids = input_ids
+    repetition_penalty = getattr(model.generation_config, "repetition_penalty", None) or 1.0
 
     with torch.inference_mode():
         with restorer.capture_base(), adapter_enabled(model, False):
-            base_output = model(input_ids=input_ids, attention_mask=attention_mask, use_cache=True)
+            base_output = model(
+                input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids,
+                cache_position=cache_position, use_cache=True,
+            )
         base_hidden = restorer.base_hidden
         base_past = base_output.past_key_values
         del base_output
         with restorer.restore(base_hidden, directions, betas), adapter_enabled(model, True):
-            sft_output = model(input_ids=input_ids, attention_mask=attention_mask, use_cache=True)
+            sft_output = model(
+                input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids,
+                cache_position=cache_position, use_cache=True,
+            )
         logits = sft_output.logits[:, -1]
         sft_past = sft_output.past_key_values
         del sft_output
 
         for step in range(max_new_tokens):
             was_active = ~finished
-            next_token = logits.argmax(dim=-1)
+            scores = logits
+            if repetition_penalty != 1.0:
+                scores = logits.clone()
+                seen_scores = torch.gather(scores, 1, sequence_ids)
+                seen_scores = torch.where(
+                    seen_scores < 0,
+                    seen_scores * repetition_penalty,
+                    seen_scores / repetition_penalty,
+                )
+                scores.scatter_(1, sequence_ids, seen_scores)
+            next_token = scores.argmax(dim=-1)
             next_token = torch.where(was_active, next_token, torch.full_like(next_token, tokenizer.pad_token_id))
             for row, active in enumerate(was_active.tolist()):
                 if active:
@@ -409,14 +448,18 @@ def _paired_greedy_generate(
             if bool(finished.all()) or step + 1 == max_new_tokens:
                 break
 
-            attention_mask = torch.cat(
-                [attention_mask, was_active.to(attention_mask.dtype)[:, None]], dim=1
-            )
+            # HF generation extends every row mask, including rows padded after EOS.
+            attention_mask = torch.cat([attention_mask, torch.ones_like(attention_mask[:, :1])], dim=1)
             step_ids = next_token[:, None]
+            sequence_ids = torch.cat([sequence_ids, step_ids], dim=1)
+            step_position_ids = attention_mask.long().sum(dim=-1, keepdim=True) - 1
+            cache_position = cache_position[-1:] + 1
             with restorer.capture_base(), adapter_enabled(model, False):
                 base_output = model(
                     input_ids=step_ids,
                     attention_mask=attention_mask,
+                    position_ids=step_position_ids,
+                    cache_position=cache_position,
                     past_key_values=base_past,
                     use_cache=True,
                 )
@@ -427,13 +470,63 @@ def _paired_greedy_generate(
                 sft_output = model(
                     input_ids=step_ids,
                     attention_mask=attention_mask,
+                    position_ids=step_position_ids,
+                    cache_position=cache_position,
                     past_key_values=sft_past,
                     use_cache=True,
                 )
             logits = sft_output.logits[:, -1]
             sft_past = sft_output.past_key_values
             del sft_output
-    return tokenizer.batch_decode(generated, skip_special_tokens=True)
+    return generated
+
+
+def _assert_beta_zero_generation_parity(
+    model, tokenizer, prompts, direction, cfg, restorer, *, max_new_tokens: int
+) -> None:
+    """Require exact beta-zero token parity with ordinary HF greedy generation."""
+    import torch
+
+    encoded = encode_generation_prompts(
+        tokenizer, prompts, return_tensors="pt", padding=True, truncation=True,
+        max_length=cfg.training.max_length,
+    ).to(_model_device(model))
+    lengths = encoded["attention_mask"].sum(dim=-1).tolist()
+    if len(prompts) != 2 or lengths[0] == lengths[1]:
+        raise RuntimeError("E4 parity gate requires two prompts with unequal token lengths")
+    with torch.inference_mode(), adapter_enabled(model, True):
+        standard = model.generate(
+            **encoded, max_new_tokens=max_new_tokens, do_sample=False,
+            pad_token_id=tokenizer.pad_token_id, use_cache=True,
+        )
+    prompt_width = encoded["input_ids"].shape[1]
+    stop_ids = generation_stop_token_ids(model, tokenizer)
+    expected = [_trim_at_stop(row[prompt_width:].tolist(), stop_ids) for row in standard]
+    observed = _paired_greedy_generate_token_ids(
+        model, tokenizer, prompts, torch.stack([direction, direction]),
+        torch.zeros(2, dtype=direction.dtype), cfg, restorer,
+        max_new_tokens=max_new_tokens,
+    )
+    if observed != expected:
+        raise RuntimeError(
+            f"E4 beta=0 generation parity failed: expected={expected!r}, observed={observed!r}"
+        )
+    print(f"[E4] beta=0 generation parity passed for unequal prompt lengths {lengths}", flush=True)
+
+
+def _unequal_prompt_pair(tokenizer, prompts: list[str], cfg) -> list[str]:
+    lengths = []
+    for prompt in prompts:
+        encoded = encode_generation_prompts(
+            tokenizer, [prompt], return_tensors="pt", truncation=True,
+            max_length=cfg.training.max_length,
+        )
+        length = int(encoded["attention_mask"].sum())
+        for previous_prompt, previous_length in lengths:
+            if previous_length != length:
+                return [previous_prompt, prompt]
+        lengths.append((prompt, length))
+    raise RuntimeError("Could not find two unequal-length prompts for E4 parity gate")
 
 
 def _generation_grid(
@@ -458,6 +551,32 @@ def _generation_grid(
         for example in examples
     ]
     results = [dict(task=[], old=[], probe=[]) for _ in cells]
+    beta_zero = {}
+    zero_indices = [index for index, cell in enumerate(cells) if cell.beta == 0.0]
+    if len(zero_indices) != 1:
+        raise RuntimeError("E4 generation requires exactly one shared beta=0 cell")
+    with torch.inference_mode(), adapter_enabled(paired_model, True):
+        for category, examples in categorized_examples.items():
+            category_completions = []
+            for category_start in range(0, len(examples), cfg.evaluation.batch_size):
+                category_batch = examples[category_start : category_start + cfg.evaluation.batch_size]
+                encoded = encode_generation_prompts(
+                    tokenizer, [example.prompt for example in category_batch],
+                    return_tensors="pt", padding=True, truncation=True,
+                    max_length=cfg.training.max_length,
+                ).to(_model_device(paired_model))
+                output_ids = paired_model.generate(
+                    **encoded, max_new_tokens=max_new_tokens, do_sample=False,
+                    pad_token_id=tokenizer.pad_token_id, use_cache=True,
+                )
+                prompt_width = encoded["input_ids"].shape[1]
+                category_completions.extend(
+                    tokenizer.batch_decode(output_ids[:, prompt_width:], skip_special_tokens=True)
+                )
+            beta_zero.update(
+                (example.example_id, completion)
+                for example, completion in zip(examples, category_completions, strict=True)
+            )
     for start in range(0, len(rows), batch_size):
         batch = rows[start : start + batch_size]
         row_signature = [
@@ -487,6 +606,10 @@ def _generation_grid(
                 restorer,
                 max_new_tokens=max_new_tokens,
             )
+            completions = [
+                beta_zero[example.example_id] if cells[cell_index].beta == 0.0 else completion
+                for (cell_index, _category, example), completion in zip(batch, completions, strict=True)
+            ]
             if cache_path is not None:
                 _atomic_json(cache_path, {"row_signature": row_signature, "completions": completions})
         for (cell_index, category, example), completion in zip(batch, completions, strict=True):
@@ -594,6 +717,14 @@ def run_e4(
 
     restorer = PairedBaseRestoration(layer)
     with restorer.install(paired_model):
+        if smoke:
+            parity_prompts = _unequal_prompt_pair(
+                tokenizer, [row.prompt for row in bundle.task_test], cfg
+            )
+            _assert_beta_zero_generation_parity(
+                paired_model, tokenizer, parity_prompts, directions[0], cfg, restorer,
+                max_new_tokens=max_new_tokens,
+            )
         print("[E4] primary KL: matched RL || paired-restored SFT", flush=True)
         toward_rl_values, induced_values = _teacher_forced_grid(
             rl_trajectories,
