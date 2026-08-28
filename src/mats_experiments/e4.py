@@ -275,17 +275,6 @@ def _teacher_forced_grid(
             source_logp = functional.log_softmax(source_logits[:, :-1].float(), dim=-1)
             del source_logits, base_output
 
-            baseline_logp = None
-            if include_induced_kl:
-                with adapter_enabled(paired_model, True):
-                    baseline_logits = paired_model(
-                        input_ids=input_ids,
-                        attention_mask=attention_mask,
-                        use_cache=False,
-                    ).logits
-                baseline_logp = functional.log_softmax(baseline_logits[:, :-1].float(), dim=-1)
-                del baseline_logits
-
             batch_count = input_ids.shape[0]
             for cell_start in range(0, len(cells), cell_chunk_size):
                 cell_stop = min(len(cells), cell_start + cell_chunk_size)
@@ -301,6 +290,26 @@ def _teacher_forced_grid(
                 expanded_base = base_hidden.repeat(chunk_count, 1, 1)
                 expanded_directions = chunk_directions.repeat_interleave(batch_count, dim=0)
                 expanded_betas = chunk_betas.repeat_interleave(batch_count)
+                # Compute the unmodified-SFT reference on the identical expanded layout used by
+                # this intervention chunk. BF16/SDPA is not bitwise invariant to batch shape;
+                # comparing against an unexpanded reference creates a spurious beta=0 KL.
+                baseline_logp = None
+                if include_induced_kl:
+                    with adapter_enabled(paired_model, True):
+                        baseline_logits = paired_model(
+                            input_ids=expanded_ids,
+                            attention_mask=expanded_attention,
+                            use_cache=False,
+                        ).logits
+                    baseline_logp = functional.log_softmax(
+                        baseline_logits[:, :-1].float(), dim=-1
+                    ).reshape(
+                        chunk_count,
+                        batch_count,
+                        baseline_logits.shape[1] - 1,
+                        baseline_logits.shape[2],
+                    )
+                    del baseline_logits
                 with restorer.restore(expanded_base, expanded_directions, expanded_betas), adapter_enabled(
                     paired_model, True
                 ):
@@ -324,7 +333,7 @@ def _teacher_forced_grid(
                     batch_values[cell_index].extend(cell_values_list)
                     if induced is not None and baseline_logp is not None:
                         induced_values = _sequence_kl(
-                            baseline_logp,
+                            baseline_logp[local_index],
                             target_logits[local_index],
                             prediction_mask,
                         )
