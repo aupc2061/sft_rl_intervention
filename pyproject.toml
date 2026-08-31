@@ -15,7 +15,8 @@ dependencies = [
 train = [
   "torch>=2.4",
   "transformers>=4.55",
-  "datasets>=3.0",
+  "datasets>=3.0,<4",
+  "huggingface-hub<1.0",
   "accelerate>=1.2",
   "peft>=0.17",
   "trl>=0.23",
@@ -30,7 +31,8 @@ dev = ["pytest>=8.3"]
 all = [
   "torch>=2.4",
   "transformers>=4.55",
-  "datasets>=3.0",
+  "datasets>=3.0,<4",
+  "huggingface-hub<1.0",
   "accelerate>=1.2",
   "peft>=0.17",
   "trl>=0.23",
