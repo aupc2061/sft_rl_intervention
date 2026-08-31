@@ -38,6 +38,7 @@ from mats_experiments.rewards import (
     exact_numeric_reward,
     extract_numeric_answer,
 )
+from mats_experiments.winogrande_eval import WinoGrandeExample, format_winogrande_prompt, summarize_choices
 
 
 class RewardTests(unittest.TestCase):
@@ -50,6 +51,26 @@ class RewardTests(unittest.TestCase):
     def test_intrusion_proxy(self):
         self.assertEqual(arithmetic_domain_intrusion("A quiet discussion of wetlands."), 0.0)
         self.assertGreater(arithmetic_domain_intrusion("Compute 2 + 2. Answer: 4"), 0.5)
+
+
+class WinoGrandeEvaluationTests(unittest.TestCase):
+    def test_prompt_has_fixed_label_contract(self):
+        example = WinoGrandeExample("x", "The trophy does not fit because _ is too large.", "the trophy", "the suitcase", 1)
+        prompt = format_winogrande_prompt(example)
+        self.assertIn("Reply with only 1 or 2", prompt)
+        self.assertIn("Option 1: the trophy", prompt)
+        self.assertIn("Answer:", prompt)
+
+    def test_choice_summary_uses_paired_likelihoods(self):
+        records = [
+            {"example_id": "a", "gold": 1, "candidate": 1},
+            {"example_id": "a", "gold": 1, "candidate": 2},
+            {"example_id": "b", "gold": 2, "candidate": 1},
+            {"example_id": "b", "gold": 2, "candidate": 2},
+        ]
+        summary = summarize_choices(records, [-1.0, -2.0, -4.0, -3.0])
+        self.assertEqual(summary["accuracy"], 1.0)
+        self.assertEqual([row["prediction"] for row in summary["examples"]], [1, 2])
 
 
 class PromptFormattingTests(unittest.TestCase):

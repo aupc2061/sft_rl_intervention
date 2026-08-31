@@ -103,6 +103,21 @@ source outputs/mvp_16h_qwen05b_gsm8k/latest_runs.env
 ./scripts/run_mvp_e4.sh "$CONFIG" "$SFT_RUN" "$RL_RUN" "$REPORT_DIR"
 ```
 
+## WinoGrande retention evaluation
+
+The initial arithmetic retention probe is saturated and is not a broad forgetting benchmark. The
+following evaluation scores WinoGrande answer labels by likelihood for the base, matched SFT,
+matched RL, and paired-restored SFT at beta 0.5 and 1.0. It defaults to CPU so it can be used as a
+small local diagnostic before moving to GPU:
+
+```bash
+WINOGRANDE_LIMIT=2 ./scripts/run_winogrande_eval.sh  # smoke
+WINOGRANDE_LIMIT=200 ./scripts/run_winogrande_eval.sh
+```
+
+The output is `mvp_report/winogrande_retention.json`. Interpret restoration as retention evidence
+only if matched SFT first shows a measurable WinoGrande deficit against the base/RL policies.
+
 Set `CUDA_VISIBLE_DEVICES` before a command to bind it to a specific GPU. Multiple independent
 seeds may be launched in separate processes only when each process has its own GPU. The 16-hour MVP
 uses exactly one seed and must not be expanded during the sprint.
