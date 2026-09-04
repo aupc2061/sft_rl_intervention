@@ -1,0 +1,74 @@
+{
+  "p11": {
+    "cosine_alignment": {
+      "paired_mean_difference_sft_minus_rl": 0.016138356178998947,
+      "paired_bootstrap_ci95": [
+        0.014671988203190267,
+        0.0176566403824836
+      ]
+    },
+    "explained_fraction": {
+      "paired_mean_difference_sft_minus_rl": 0.03144727926701307,
+      "paired_bootstrap_ci95": [
+        0.028624565387144685,
+        0.03438589747529477
+      ]
+    }
+  },
+  "p21": {
+    "subset_seed": 20260903,
+    "repeats": 1000,
+    "reference": "disjoint 64-prompt confirmation mean"
+  },
+  "p22": {
+    "distinct_cosine_threshold": 0.99,
+    "e3_rerun_required": [
+      {
+        "model": "sft",
+        "token_window": 1,
+        "direction_norm": 1.466221570968628,
+        "confirmation_globality": 0.9298812747001648,
+        "cosine_to_window5": 0.7567201256752014
+      },
+      {
+        "model": "sft",
+        "token_window": 3,
+        "direction_norm": 0.8900042772293091,
+        "confirmation_globality": 0.9687438011169434,
+        "cosine_to_window5": 0.9339184761047363
+      },
+      {
+        "model": "sft",
+        "token_window": 10,
+        "direction_norm": 0.4224773645401001,
+        "confirmation_globality": 0.9512617588043213,
+        "cosine_to_window5": 0.970380425453186
+      },
+      {
+        "model": "rl",
+        "token_window": 1,
+        "direction_norm": 0.0044945920817554,
+        "confirmation_globality": 0.8856281638145447,
+        "cosine_to_window5": 0.5515224933624268
+      },
+      {
+        "model": "rl",
+        "token_window": 3,
+        "direction_norm": 0.003570083761587739,
+        "confirmation_globality": 0.9718773365020752,
+        "cosine_to_window5": 0.9031778573989868
+      },
+      {
+        "model": "rl",
+        "token_window": 10,
+        "direction_norm": 0.0021747038699686527,
+        "confirmation_globality": 0.9285288453102112,
+        "cosine_to_window5": 0.9124280214309692
+      }
+    ]
+  },
+  "counts": {
+    "discovery": 64,
+    "confirmation": 64
+  }
+}

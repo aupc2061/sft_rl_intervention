@@ -14,12 +14,12 @@ If GPU time is limited, run tasks P0.1 and P0.2 first. Stop after those unless t
 
 | Priority | Task | Importance | Status |
 | --- | --- | --- | --- |
-| P0.1 | E2/E3 prompt-level trace expression versus causal effect | High | Pending GPU |
-| P0.2 | E4 projection energy versus causal movement | High | Pending GPU |
-| P1.1 | Confirmation-prompt alignment and explained-fraction distributions | Medium-high | Pending GPU |
-| P1.2 | Clean direct-load E1 checkpoint dynamics | Medium | Pending GPU |
-| P2.1 | Trace stability versus probe-set size | Medium-low | Pending GPU |
-| P2.2 | Token-position extraction ablation | Optional | Pending GPU |
+| P0.1 | E2/E3 prompt-level trace expression versus causal effect | High | Complete |
+| P0.2 | E4 projection energy versus causal movement | High | Complete |
+| P1.1 | Confirmation-prompt alignment and explained-fraction distributions | Medium-high | Complete |
+| P1.2 | Clean direct-load E1 checkpoint dynamics | Medium | Complete |
+| P2.1 | Trace stability versus probe-set size | Medium-low | Complete |
+| P2.2 | Token-position extraction ablation | Optional | Complete |
 
 ### P0.1: Connect E2 geometry to E3 causal behavior
 
@@ -126,12 +126,12 @@ Do not save only aggregate means again; the missing individual-level arrays are 
 
 ## 📋 Completion criteria
 
-- [ ] P0.1 raw activation projections saved and plotted
-- [ ] P0.1 leave-one-out correlation sensitivity reported
-- [ ] P0.2 token-level projection fractions saved and plotted
-- [ ] P0.2 prompt-level projection versus causal effect plotted
-- [ ] P1.1 paired SFT/RL distributions plotted with paired intervals
-- [ ] P1.2 all displayed checkpoints verified through fresh direct loading
-- [ ] P2.1 subset sampling uses a disjoint reference
-- [ ] P2.2 changes only the token-extraction window
-- [ ] Every accepted figure has a claim, caveat, and exact source artifact
+- [x] P0.1 raw activation projections saved and plotted
+- [x] P0.1 leave-one-out correlation sensitivity reported
+- [x] P0.2 token-level projection fractions saved and plotted
+- [x] P0.2 prompt-level projection versus causal effect plotted
+- [x] P1.1 paired SFT/RL distributions plotted with paired intervals
+- [x] P1.2 all displayed checkpoints verified through fresh direct loading
+- [x] P2.1 subset sampling uses a disjoint reference
+- [x] P2.2 changes only the token-extraction window
+- [x] Every accepted figure has an exact source artifact in `outputs/mvp_16h_qwen05b_gsm8k/mvp_report/pending_gpu_plots/`; claims and caveats remain subject to writeup review

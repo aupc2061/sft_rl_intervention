@@ -1,0 +1,12 @@
+{
+  "checkpoint_count": 20,
+  "sft_count": 4,
+  "grpo_count": 16,
+  "fresh_process_per_checkpoint": true,
+  "unloaded_base_logits_verified_identical": true,
+  "base_logits_sha256": "63411970f55bcddaeb6eaaeb52322820732dd5dc3a976af1e9508e8c4182418a",
+  "selected_pair": {
+    "sft_step": 12,
+    "grpo_step": 20
+  }
+}
