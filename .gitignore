@@ -7,3 +7,10 @@ __pycache__/
 outputs/
 data/cache/
 wandb/
+logs/
+tmp/
+output/
+reports/
+*.docx
+*.pdf
+setup.log

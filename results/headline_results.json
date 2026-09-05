@@ -1,0 +1,71 @@
+{
+  "study": {
+    "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "seed": 1,
+    "train_examples": 256,
+    "held_out_gsm8k_examples": 48,
+    "probe_examples": 128,
+    "sft_checkpoint": "checkpoint-12",
+    "grpo_checkpoint": "checkpoint-20"
+  },
+  "e1": {
+    "sft_task_accuracy": 0.4375,
+    "grpo_task_accuracy": 0.4375,
+    "sft_forward_kl_from_base": 0.020531015063170344,
+    "grpo_forward_kl_from_base": 0.0004185597990726819,
+    "sft_minus_grpo_forward_kl": 0.02011245526409766
+  },
+  "e2": {
+    "selected_layer": 10,
+    "selection_split": "64 discovery probes",
+    "reporting_split": "64 disjoint confirmation probes",
+    "sft_rho_discovery": 0.9679880738258362,
+    "grpo_rho_discovery": 0.9381037950515747,
+    "discovery_gap": 0.029884278774261475,
+    "sft_rho_confirmation": 0.969431459903717,
+    "grpo_rho_confirmation": 0.9392285943031311,
+    "sft_split_half_cosine": 0.9989671111106873,
+    "approximate_sft_to_grpo_trace_norm_ratio": 235
+  },
+  "e3": {
+    "primary_metric": "KL movement of intervened GRPO toward matched SFT on fixed prefixes",
+    "baseline_sft_to_grpo_kl": 0.08616175304632634,
+    "full_scale_delta_toward_sft": 0.03471098898444325,
+    "full_scale_fraction_gap_closed": 0.402849033468364,
+    "baseline_task_accuracy": 0.4375,
+    "full_scale_task_accuracy": 0.3541666666666667,
+    "positive_prompt_effects": "16/16",
+    "full_metrics": "../outputs/mvp_16h_qwen05b_gsm8k/mvp_report/e3_metrics.json"
+  },
+  "e4": {
+    "primary_metric": "KL movement of paired-restored SFT toward matched GRPO on fixed GRPO trajectories",
+    "baseline_grpo_to_sft_kl": 0.023596891609486192,
+    "full_restoration_delta_toward_grpo": 0.008159699471434578,
+    "full_restoration_fraction_gap_closed": 0.345791297243137,
+    "direct_load_baseline_task_accuracy": 0.4791666666666667,
+    "full_restoration_task_accuracy": 0.3541666666666667,
+    "positive_prompt_effects": "16/16",
+    "interpretation_limit": "Cannot distinguish GRPO-specific movement from restoration toward the nearby base policy.",
+    "full_metrics": "../outputs/mvp_16h_qwen05b_gsm8k/mvp_report/e4_metrics.json"
+  },
+  "e5": {
+    "status": "inconclusive",
+    "winogrande_examples": 200,
+    "winogrande_accuracy": {
+      "base": 0.515,
+      "sft": 0.525,
+      "e4_beta_0.5": 0.52,
+      "e4_beta_1": 0.515,
+      "grpo": 0.515
+    },
+    "hellaswag_examples": 10042,
+    "hellaswag_accuracy": {
+      "base": 0.25951005775741887,
+      "sft": 0.2651862178848835,
+      "e4_beta_0.5": 0.2633937462656841,
+      "e4_beta_1": 0.2613025293766182,
+      "grpo": 0.26020713005377416
+    },
+    "interpretation_limit": "No SFT forgetting gap was observed; strong answer-position bias limits these evaluations."
+  }
+}
