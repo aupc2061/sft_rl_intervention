@@ -1,0 +1,8 @@
+{
+  "config_fingerprint": "8d3fe169da",
+  "max_steps": 96,
+  "pilot": false,
+  "pilot_baseline": "/workspace/mats-grpo-7f1ba16.XMOO9krx/outputs/gsm8k-qwen25-15b-grpo-4096-g8-pilot/grpo-seed1-20261122T182542Z-164e5b554f/artifacts/heldout_step_0.json",
+  "reward_scoring": "explicit-final-line-v1",
+  "training_seconds": 1892.4435572530492
+}

@@ -1,0 +1,124 @@
+{
+  "config_fingerprint": "8d3fe169da",
+  "final_step": 12,
+  "heldout": [
+    {
+      "accuracy": 0.220703125,
+      "delta_from_base": 0.0,
+      "final_answer_rate": 0.55078125,
+      "legacy_accuracy": 0.53515625,
+      "paired_delta_ci95": [
+        0.0,
+        0.0
+      ],
+      "policy": "untrained",
+      "step": 0
+    },
+    {
+      "accuracy": 0.212890625,
+      "delta_from_base": -0.0078125,
+      "final_answer_rate": 0.529296875,
+      "legacy_accuracy": 0.541015625,
+      "paired_delta_ci95": [
+        -0.03125,
+        0.017578125
+      ],
+      "policy": "final",
+      "step": 12
+    }
+  ],
+  "heldout_examples": 512,
+  "mean_clipped_fraction": 0.0026041666666666665,
+  "mean_mixed_group_fraction": 0.5833333333333334,
+  "mean_training_final_answer_rate": null,
+  "passes_rollout_gate": true,
+  "pilot": true,
+  "reward_scoring": "explicit-final-line-v1",
+  "training": [
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.0,
+      "reward": 0.0,
+      "step": 1
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.75,
+      "reward": 0.1875,
+      "step": 2
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.5,
+      "reward": 0.0625,
+      "step": 3
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.75,
+      "reward": 0.15625,
+      "step": 4
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.5,
+      "reward": 0.3125,
+      "step": 5
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.75,
+      "reward": 0.125,
+      "step": 6
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.75,
+      "reward": 0.15625,
+      "step": 7
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.75,
+      "reward": 0.34375,
+      "step": 8
+    },
+    {
+      "clipped_fraction": 0.03125,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.5,
+      "reward": 0.09375,
+      "step": 9
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.0,
+      "reward": 0.0,
+      "step": 10
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 1.0,
+      "reward": 0.28125,
+      "step": 11
+    },
+    {
+      "clipped_fraction": 0.0,
+      "final_answer_rate": null,
+      "mixed_group_fraction": 0.75,
+      "reward": 0.34375,
+      "step": 12
+    }
+  ],
+  "training_seconds": 289.99379677401157
+}

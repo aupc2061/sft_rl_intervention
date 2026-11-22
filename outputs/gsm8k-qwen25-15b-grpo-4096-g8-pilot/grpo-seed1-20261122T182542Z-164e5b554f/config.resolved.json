@@ -1,0 +1,79 @@
+{
+  "data": {
+    "kind": "gsm8k",
+    "max_operand": 30,
+    "old_size": 32,
+    "probe_size": 128,
+    "task_test_size": 512,
+    "train_size": 4096
+  },
+  "evaluation": {
+    "batch_size": 16,
+    "bootstrap_samples": 2000,
+    "intervention_probe_samples": 32,
+    "kl_samples": 64,
+    "max_new_tokens": 768,
+    "temperature": 0.8
+  },
+  "experiment": {
+    "name": "gsm8k-qwen25-15b-grpo-4096-g8-pilot",
+    "output_root": "outputs",
+    "seed": 1
+  },
+  "model": {
+    "attention_implementation": "sdpa",
+    "dtype": "bfloat16",
+    "lora_alpha": 16,
+    "lora_dropout": 0.0,
+    "lora_rank": 8,
+    "name_or_path": "Qwen/Qwen2.5-1.5B-Instruct",
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj"
+    ],
+    "use_lora": true
+  },
+  "traces": {
+    "discovery_fraction": 0.5,
+    "dtype": "float32",
+    "intervention_scales": [
+      -1.0,
+      -0.5,
+      0.0,
+      0.5,
+      1.0
+    ],
+    "token_positions": [
+      -5,
+      -4,
+      -3,
+      -2,
+      -1
+    ],
+    "top_k_layers": 3
+  },
+  "training": {
+    "anchor_beta": 0.0,
+    "anchor_direction": null,
+    "anchor_layer": null,
+    "batch_size": 4,
+    "epochs": 1,
+    "gradient_accumulation_steps": 8,
+    "gradient_checkpointing": true,
+    "grpo_learning_rate": 1e-06,
+    "kl_coefficient": 0.0,
+    "learning_rate": 0.0001,
+    "logging_steps": 1,
+    "max_completion_length": 768,
+    "max_length": 512,
+    "method": "grpo",
+    "num_generations": 8,
+    "save_steps": 128,
+    "sft_batch_size": null,
+    "sft_gradient_accumulation_steps": null,
+    "sft_learning_rate": null,
+    "tf32": true
+  }
+}

@@ -1,0 +1,1 @@
+{"stage": "train", "status": "completed", "timestamp_utc": "2026-11-22T18:30:01.500279+00:00", "total_flos": 0.0, "train_loss": -0.36385921761393547, "train_runtime": 253.3684, "train_samples_per_second": 1.516, "train_steps_per_second": 0.047}

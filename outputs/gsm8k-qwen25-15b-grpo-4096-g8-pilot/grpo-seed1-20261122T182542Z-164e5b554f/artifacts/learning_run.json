@@ -1,0 +1,6 @@
+{
+  "config_fingerprint": "8d3fe169da",
+  "pilot": true,
+  "reward_scoring": "explicit-final-line-v1",
+  "training_seconds": 289.99379677401157
+}
