@@ -1,0 +1,37 @@
+experiment:
+  name: gsm8k-qwen25-15b-grpo-4096-g8
+  output_root: outputs
+  seed: 1
+model:
+  name_or_path: Qwen/Qwen2.5-1.5B-Instruct
+  dtype: bfloat16
+  use_lora: true
+  lora_rank: 8
+  lora_alpha: 16
+  lora_dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+  attention_implementation: sdpa
+data:
+  kind: gsm8k
+  train_size: 4096
+  task_test_size: 512
+  probe_size: 128
+  old_size: 32
+training:
+  method: grpo
+  grpo_learning_rate: 0.000001
+  epochs: 1
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  gradient_checkpointing: true
+  tf32: true
+  max_length: 512
+  max_completion_length: 768
+  num_generations: 8
+  save_steps: 128
+  logging_steps: 1
+evaluation:
+  batch_size: 16
+  max_new_tokens: 768
+  temperature: 0.8
+  bootstrap_samples: 2000

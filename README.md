@@ -115,6 +115,9 @@ evaluation scripts subsequently use `.venv/bin/python`; no manual activation is 
 
 ## Reproduce the experiment
 
+For the follow-up GRPO learning check with Qwen2.5-1.5B and 4,096 GSM8K training
+examples, see [the pilot and full-run instructions](docs/gsm8k_qwen15b_grpo.md).
+
 ### 1. Confirm that GSM8K supplies a usable GRPO signal
 
 ```bash

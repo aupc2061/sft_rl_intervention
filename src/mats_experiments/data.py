@@ -33,11 +33,11 @@ class DatasetBundle:
     old: tuple[Example, ...]
 
 
-def build_dataset(cfg: DataConfig, seed: int) -> DatasetBundle:
+def build_dataset(cfg: DataConfig, seed: int, *, final_answer_line: bool = False) -> DatasetBundle:
     if cfg.kind == "synthetic_arithmetic":
         return build_synthetic_arithmetic(cfg, seed)
     if cfg.kind == "gsm8k":
-        return build_gsm8k(cfg, seed)
+        return build_gsm8k(cfg, seed, final_answer_line=final_answer_line)
     raise ValueError(f"Unsupported dataset kind: {cfg.kind}")
 
 
@@ -81,7 +81,7 @@ def build_synthetic_arithmetic(cfg: DataConfig, seed: int) -> DatasetBundle:
     return DatasetBundle(train, task_test, probe, old)
 
 
-def build_gsm8k(cfg: DataConfig, seed: int) -> DatasetBundle:
+def build_gsm8k(cfg: DataConfig, seed: int, *, final_answer_line: bool = False) -> DatasetBundle:
     try:
         from datasets import load_dataset
     except ImportError as exc:
@@ -89,6 +89,10 @@ def build_gsm8k(cfg: DataConfig, seed: int) -> DatasetBundle:
 
     dataset = load_dataset("openai/gsm8k", "main")
     rng = random.Random(seed)
+    answer_instruction = (
+        "put only 'Answer: <number>' on the last line."
+        if final_answer_line else "end with 'Answer: <number>'."
+    )
 
     def convert(rows: Iterable[dict[str, Any]], split: str, count: int) -> tuple[Example, ...]:
         rows = list(rows)
@@ -97,8 +101,8 @@ def build_gsm8k(cfg: DataConfig, seed: int) -> DatasetBundle:
         for index, row in enumerate(rows[:count]):
             answer = str(row["answer"]).split("####")[-1].strip().replace(",", "")
             prompt = (
-                "Solve the following problem. Give a concise derivation and end with "
-                f"'Answer: <number>'.\nProblem: {row['question']}"
+                "Solve the following problem. Give a concise derivation and "
+                f"{answer_instruction}\nProblem: {row['question']}"
             )
             completion = str(row["answer"]).replace("####", "Answer:")
             result.append(Example(prompt, completion, answer, split, f"{split}-{index:05d}"))

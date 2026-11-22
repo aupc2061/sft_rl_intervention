@@ -8,6 +8,12 @@ from typing import Any, Iterable
 _ANSWER_PATTERN = re.compile(r"(?i)answer\s*:\s*([-+]?\d[\d,]*(?:\.\d+)?)")
 _BOXED_PATTERN = re.compile(r"\\boxed\{\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*\}")
 _NUMBER_PATTERN = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
+_FINAL_NUMBER = r"[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+_FINAL_LINE_PATTERN = re.compile(
+    rf"(?:\s*(?:final\s+)?answer\s*:\s*\$?\s*({_FINAL_NUMBER})\s*[.!]?\s*"
+    rf"|\s*(?:(?:final\s+)?answer\s*:\s*)?\\boxed\{{\s*({_FINAL_NUMBER})\s*\}}\s*[.!]?\s*)",
+    re.IGNORECASE,
+)
 
 
 def extract_numeric_answer(text: str) -> str | None:
@@ -34,6 +40,25 @@ def exact_numeric_reward(completion: str, answer: str) -> float:
     return float(predicted is not None and expected is not None and predicted == expected)
 
 
+def extract_final_numeric_answer(text: str) -> str | None:
+    """Read a labeled number or boxed number on the last nonempty line."""
+    lines = text.strip().splitlines()
+    if not lines:
+        return None
+    line = lines[-1].strip().replace("**", "").replace("__", "").strip()
+    for opening, closing in (("\\[", "\\]"), ("\\(", "\\)"), ("$$", "$$"), ("$", "$")):
+        if line.startswith(opening) and line.endswith(closing) and len(line) > len(opening) + len(closing):
+            line = line[len(opening):-len(closing)].strip()
+            break
+    match = _FINAL_LINE_PATTERN.fullmatch(line)
+    return normalize_number(match[1] or match[2]) if match else None
+
+
+def final_numeric_reward(completion: str, answer: str) -> float:
+    predicted = extract_final_numeric_answer(completion)
+    return float(predicted is not None and predicted == normalize_number(answer))
+
+
 def arithmetic_domain_intrusion(text: str) -> float:
     """Predeclared cheap proxy for arithmetic-task intrusion into unrelated generations."""
     signals = (
@@ -52,10 +77,29 @@ def grpo_numeric_reward(
     log_metric=None,
     **_: Any,
 ) -> list[float]:
+    return _score_grpo(completions, answer, extract_numeric_answer, log_extra, log_metric)
+
+
+def grpo_final_numeric_reward(
+    completions: Iterable[Any],
+    answer: Iterable[str],
+    log_extra=None,
+    log_metric=None,
+    **_: Any,
+) -> list[float]:
+    return _score_grpo(completions, answer, extract_final_numeric_answer, log_extra, log_metric)
+
+
+def _score_grpo(completions, answer, extract, log_extra, log_metric) -> list[float]:
     texts = [_completion_text(completion) for completion in completions]
     targets = list(answer)
-    predictions = [extract_numeric_answer(text) for text in texts]
-    rewards = [exact_numeric_reward(text, target) for text, target in zip(texts, targets)]
+    if len(texts) != len(targets):
+        raise ValueError("GRPO received different numbers of completions and gold answers")
+    predictions = [extract(text) for text in texts]
+    rewards = [
+        float(prediction is not None and prediction == normalize_number(target))
+        for prediction, target in zip(predictions, targets)
+    ]
     if callable(log_extra):
         log_extra("gold_answer", targets)
         log_extra("parsed_answer", [prediction or "[unparsed]" for prediction in predictions])

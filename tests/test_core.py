@@ -37,6 +37,8 @@ from mats_experiments.rewards import (
     arithmetic_domain_intrusion,
     exact_numeric_reward,
     extract_numeric_answer,
+    final_numeric_reward,
+    grpo_final_numeric_reward,
 )
 from mats_experiments.winogrande_eval import WinoGrandeExample, format_winogrande_prompt, summarize_choices
 
@@ -51,6 +53,22 @@ class RewardTests(unittest.TestCase):
     def test_intrusion_proxy(self):
         self.assertEqual(arithmetic_domain_intrusion("A quiet discussion of wetlands."), 0.0)
         self.assertGreater(arithmetic_domain_intrusion("Compute 2 + 2. Answer: 4"), 0.5)
+
+    def test_final_answer_reward_requires_a_complete_final_line(self):
+        completions = [
+            "First we calculate 12",
+            "Reasoning.\n**Answer:** $12.",
+            r"\[\boxed{12}\]",
+            "Answer: 12 / 2",
+            "Answer: 12\nActually, let's reconsider.",
+        ]
+        expected = [0, 1, 1, 0, 0]
+        self.assertEqual([final_numeric_reward(text, "12") for text in completions], expected)
+        messages = [[{"role": "assistant", "content": text}] for text in completions]
+        self.assertEqual(grpo_final_numeric_reward(messages, ["12"] * len(messages)), expected)
+        self.assertEqual(exact_numeric_reward(completions[0], "12"), 1)
+        with self.assertRaisesRegex(ValueError, "different numbers"):
+            grpo_final_numeric_reward(messages, ["12"])
 
 
 class WinoGrandeEvaluationTests(unittest.TestCase):

@@ -82,7 +82,9 @@ def generate_completions(
     return completions
 
 
-def accuracy_records(model, tokenizer, examples: Iterable[Example], cfg, *, adapter: bool):
+def accuracy_records(
+    model, tokenizer, examples: Iterable[Example], cfg, *, adapter: bool, score=exact_numeric_reward
+):
     example_list = list(examples)
     completions = generate_completions(
         model,
@@ -94,7 +96,7 @@ def accuracy_records(model, tokenizer, examples: Iterable[Example], cfg, *, adap
     )
     records: list[dict[str, Any]] = []
     for example, completion in zip(example_list, completions, strict=True):
-        reward = exact_numeric_reward(completion, example.answer)
+        reward = score(completion, example.answer)
         records.append(
             {
                 "example_id": example.example_id,
