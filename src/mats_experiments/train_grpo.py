@@ -20,12 +20,14 @@ from .results import RunDirectory
 from .rewards import grpo_final_numeric_reward, grpo_numeric_reward
 
 
-def train(cfg, *, max_steps: int = -1, strict_final_answer: bool = False):
+def train(cfg, *, max_steps: int = -1, strict_final_answer: bool = False, task_only: bool = False):
     require_training_stack()
     from trl import GRPOConfig, GRPOTrainer
 
     set_seed(cfg.experiment.seed)
-    bundle = build_dataset(cfg.data, cfg.experiment.seed, final_answer_line=strict_final_answer)
+    bundle = build_dataset(
+        cfg.data, cfg.experiment.seed, final_answer_line=strict_final_answer, task_only=task_only
+    )
     # Conversational prompts make TRL apply the model chat template and preserve
     # the assistant turn boundary used by viability and evaluation.
     dataset = to_hf_dataset(bundle.train, conversational=True)

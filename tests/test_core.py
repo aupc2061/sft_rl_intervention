@@ -4,6 +4,8 @@ import tempfile
 import unittest
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from mats_experiments.activations import _mean_selected_tokens
 from mats_experiments.config import (
@@ -14,7 +16,7 @@ from mats_experiments.config import (
     TrainingConfig,
     load_config,
 )
-from mats_experiments.data import build_synthetic_arithmetic
+from mats_experiments.data import build_gsm8k, build_synthetic_arithmetic
 from mats_experiments.evaluate_many import partition_checkpoints
 from mats_experiments.e4 import build_e4_cells
 from mats_experiments.e4_analysis import _derive_e4_row
@@ -69,6 +71,21 @@ class RewardTests(unittest.TestCase):
         self.assertEqual(exact_numeric_reward(completions[0], "12"), 1)
         with self.assertRaisesRegex(ValueError, "different numbers"):
             grpo_final_numeric_reward(messages, ["12"])
+
+
+class LargeGSM8KDatasetTests(unittest.TestCase):
+    def test_gsm8k_train_size_can_exceed_synthetic_space(self):
+        cfg = DataConfig(kind="gsm8k", train_size=4096, task_test_size=512, max_operand=50)
+        splits = {
+            split: [{"question": f"{split} problem {i}", "answer": "#### 12"} for i in range(n)]
+            for split, n in (("train", 4096), ("test", 512))
+        }
+        with patch.dict("sys.modules", {"datasets": SimpleNamespace(load_dataset=lambda *_: splits)}):
+            bundle = build_gsm8k(cfg, 1, final_answer_line=True, task_only=True)
+        self.assertEqual((len(bundle.train), len(bundle.task_test)), (4096, 512))
+        self.assertEqual((bundle.old, bundle.probe), ((), ()))
+        with self.assertRaisesRegex(ValueError, "unique synthetic multiplication"):
+            build_synthetic_arithmetic(cfg, 1)
 
 
 class WinoGrandeEvaluationTests(unittest.TestCase):

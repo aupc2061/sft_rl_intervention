@@ -64,7 +64,7 @@ def evaluate_curve(cfg, run: RunDirectory, *, pilot: bool, training_seconds=None
         ))
     policies.append((final_step, checkpoint_root / "final"))
 
-    examples = build_dataset(cfg.data, cfg.experiment.seed, final_answer_line=True).task_test
+    examples = build_dataset(cfg.data, cfg.experiment.seed, final_answer_line=True, task_only=True).task_test
     tokenizer = load_tokenizer(cfg)
     points = []
     base = None
@@ -198,6 +198,7 @@ def main():
         pilot_cfg if args.pilot else cfg,
         max_steps=12 if args.pilot else -1,
         strict_final_answer=True,
+        task_only=True,
     )
     seconds = time.monotonic() - started
     run.write_json("artifacts/learning_run.json", {

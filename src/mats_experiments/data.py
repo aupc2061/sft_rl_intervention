@@ -33,15 +33,21 @@ class DatasetBundle:
     old: tuple[Example, ...]
 
 
-def build_dataset(cfg: DataConfig, seed: int, *, final_answer_line: bool = False) -> DatasetBundle:
+def build_dataset(
+    cfg: DataConfig, seed: int, *, final_answer_line: bool = False, task_only: bool = False
+) -> DatasetBundle:
     if cfg.kind == "synthetic_arithmetic":
         return build_synthetic_arithmetic(cfg, seed)
     if cfg.kind == "gsm8k":
-        return build_gsm8k(cfg, seed, final_answer_line=final_answer_line)
+        return build_gsm8k(cfg, seed, final_answer_line=final_answer_line, task_only=task_only)
     raise ValueError(f"Unsupported dataset kind: {cfg.kind}")
 
 
 def build_synthetic_arithmetic(cfg: DataConfig, seed: int) -> DatasetBundle:
+    if cfg.train_size + cfg.task_test_size > cfg.max_operand**2:
+        raise ValueError("Requested more unique synthetic multiplication examples than possible")
+    if cfg.old_size > 2 * cfg.max_operand**2:
+        raise ValueError("Requested more unique synthetic retention examples than possible")
     rng = random.Random(seed)
     seen: set[tuple[str, int, int]] = set()
 
@@ -81,7 +87,9 @@ def build_synthetic_arithmetic(cfg: DataConfig, seed: int) -> DatasetBundle:
     return DatasetBundle(train, task_test, probe, old)
 
 
-def build_gsm8k(cfg: DataConfig, seed: int, *, final_answer_line: bool = False) -> DatasetBundle:
+def build_gsm8k(
+    cfg: DataConfig, seed: int, *, final_answer_line: bool = False, task_only: bool = False
+) -> DatasetBundle:
     try:
         from datasets import load_dataset
     except ImportError as exc:
@@ -112,6 +120,8 @@ def build_gsm8k(cfg: DataConfig, seed: int, *, final_answer_line: bool = False) 
     test_rows = list(dataset["test"])
     train = convert(train_rows, "train", cfg.train_size)
     task_test = convert(test_rows, "task_test", cfg.task_test_size)
+    if task_only:
+        return DatasetBundle(train, task_test, (), ())
     old = build_synthetic_arithmetic(cfg, seed + 1).old
     probe_rng = random.Random(seed + 2)
     probe = tuple(
